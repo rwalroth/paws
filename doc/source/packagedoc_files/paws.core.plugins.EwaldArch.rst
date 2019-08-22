@@ -1,7 +1,7 @@
 paws.core.plugins.EwaldArch module
 ----------------------------------------
 
-.. automodule:: paws.core.plugins.TCPClientPlugin
+.. automodule:: paws.core.plugins.EwaldArch
     :members:
     :undoc-members:
     :show-inheritance:
@@ -14,31 +14,31 @@ data contained in an EwaldArch object.
 
 **Attributes**
 
-	* map_raw: numpy 2d array of the unprocessed image data
-	* map_corr: image data corrected for any masks, flat filed, dark current, etc corrections
-	* map_xyz: rotated Cartesian coordinates for the pixels
-	* map_tpr: rotated spherical coordinates for the pixels (theta, phi, r)
-	* map_q: reciprocal space coordinates for the 2D data
-	* int_raw: raw integrated 1D pattern
-	* int_pcount: values to use for normalizing the 1D pattern by number of pixels in each two-theta bin
-	* int_norm: normalized 1D pattern
-	* int_2theta: 1D 2 theta array
-	* int_q: q values for 1D array
-	* scan_info: information from any relevant motors and sensors 
-	* rotations: dictionary of the order of rotations to be done, and the angles to apply
-	* arch_lock: threading lock used to ensure only one process can access data at a time
+* map_raw: numpy 2d array of the unprocessed image data
+* map_corr: image data corrected for any masks, flat filed, dark current, etc corrections
+* map_xyz: rotated Cartesian coordinates for the pixels
+* map_tpr: rotated spherical coordinates for the pixels (theta, phi, r)
+* map_q: reciprocal space coordinates for the 2D data
+* int_raw: raw integrated 1D pattern
+* int_pcount: values to use for normalizing the 1D pattern by number of pixels in each two-theta bin
+* int_norm: normalized 1D pattern
+* int_2theta: 1D 2 theta array
+* int_q: q values for 1D array
+* scan_info: information from any relevant motors and sensors 
+* rotations: dictionary of the order of rotations to be done, and the angles to apply
+* arch_lock: threading lock used to ensure only one process can access data at a time
 
 **Methods**
 
-	* \__init__: sets the attributes of the arch object. If calc_all is True, will also perform the routine calculations (run all methods)
-	* read_file: read in data from file as a numpy array
-	* apply_corrections: apply any corrections needed for the data
-	* rotate: rotates the provided xyz_map based on the provided rotation order and angles
-	* cart_to_sphere: converts Cartesian coordinates to spherical
-	* sphere_to_q: converts spherical coordinates to reciprocal space #will require knowledge of sample orientation in general case
-	* integrate_1d: integrate the image data to create I, 2θ, q, and normalization arrays
-	* \_read_raw (static): reads in raw file format and returns a numpy array
-	* \_mask: applies a provided mask to make any undesired pixels negative
-	* \_rot_x (static): rotates about x axis (orthogonal to beam, horizontal)
-	* \_rot_y (static): rotates about the y axis (orthogonal to beam, vertical)
-	* \_rot_z (static): rotates about the z axis (collinear with the beam)
+* \__init__: sets the attributes of the arch object. If calc_all is True, will also perform the routine calculations (run all methods)
+* read_file: read in data from file as a numpy array
+* apply_corrections: apply any corrections needed for the data
+* rotate: rotates the provided xyz_map based on the provided rotation order and angles
+* cart_to_sphere: converts Cartesian coordinates to spherical
+* sphere_to_q: converts spherical coordinates to reciprocal space #will require knowledge of sample orientation in general case
+* integrate_1d: integrate the image data to create I, 2θ, q, and normalization arrays
+* \_read_raw (static): reads in raw file format and returns a numpy array
+* \_mask: applies a provided mask to make any undesired pixels negative
+* \_rot_x (static): rotates about x axis (orthogonal to beam, horizontal)
+* \_rot_y (static): rotates about the y axis (orthogonal to beam, vertical)
+* \_rot_z (static): rotates about the z axis (collinear with the beam)
