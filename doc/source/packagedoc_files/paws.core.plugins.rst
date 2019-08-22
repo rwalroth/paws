@@ -44,6 +44,22 @@ paws.core.plugins.TCPClientPlugin module
     :undoc-members:
     :show-inheritance:
 
+paws.core.plugins.EwaldSphere module
+----------------------------------------
+
+.. automodule:: paws.core.plugins.TCPClientPlugin
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+paws.core.plugins.EwaldArch module
+----------------------------------------
+
+.. automodule:: paws.core.plugins.TCPClientPlugin
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 
 Module contents
 ---------------
