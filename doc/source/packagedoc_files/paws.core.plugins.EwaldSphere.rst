@@ -8,7 +8,7 @@ paws.core.plugins.EwaldSphere module
 	
 EwaldSphere is a class which stores data acquired by EwaldWorkflow. 
 EwaldSphere inherits from the PawsPlugin class and relies on the class 
-EwaldArch for storing 2D detector data, and the class SpecFile for storing 
+EwaldArch for storing 2D detector data, and the operation LoadSpecFile for storing 
 data acquired by SPEC.
 
 **Attributes**

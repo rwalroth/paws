@@ -12,6 +12,7 @@ Subpackages
     paws.core.operations.PROCESSING
     paws.core.operations.TESTS
     paws.core.operations.TMP
+	paws.core.operations.SPEC
 
 Submodules
 ----------
