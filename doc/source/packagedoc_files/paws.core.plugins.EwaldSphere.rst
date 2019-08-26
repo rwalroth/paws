@@ -27,6 +27,7 @@ data acquired by SPEC.
   * db_px: (x, y) tuple for the x and y position of the direct beam in pixels
   * detector_distance: distance from sample to detector in pixels
   * pixel_size: either sclalar value for square pixels or (x, y) tuple if rectangular pixels
+  * detector_shape: (r, c) tupple for shape of image arrays
   * sample_offset: (x, y, z) tuple for sample offset measured in mm
 * global_1d_I: array containing the 1D diffraction pattern from all arches
 * global_1d_2theta: array containing the 2 theta values for the global_1d array
