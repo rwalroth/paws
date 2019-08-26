@@ -30,15 +30,14 @@ data contained in an EwaldArch object.
 
 **Methods**
 
-* \__init__: sets the attributes of the arch object. If calc_all is True, will also perform the routine calculations (run all methods)
 * read_file: read in data from file as a numpy array
 * apply_corrections: apply any corrections needed for the data
 * rotate: rotates the provided xyz_map based on the provided rotation order and angles
 * cart_to_sphere: converts Cartesian coordinates to spherical
-* sphere_to_q: converts spherical coordinates to reciprocal space #will require knowledge of sample orientation in general case
+* sphere_to_q: converts spherical coordinates to reciprocal space
 * integrate_1d: integrate the image data to create I, 2θ, q, and normalization arrays
-* \_read_raw (static): reads in raw file format and returns a numpy array
-* \_mask: applies a provided mask to make any undesired pixels negative
-* \_rot_x (static): rotates about x axis (orthogonal to beam, horizontal)
-* \_rot_y (static): rotates about the y axis (orthogonal to beam, vertical)
-* \_rot_z (static): rotates about the z axis (collinear with the beam)
+* read_raw (static): reads in raw file format and returns a numpy array
+* mask: applies a provided mask to make any undesired pixels negative
+* rot_x (static): rotates about x axis (orthogonal to beam, horizontal)
+* rot_y (static): rotates about the y axis (orthogonal to beam, vertical)
+* rot_z (static): rotates about the z axis (collinear with the beam)
