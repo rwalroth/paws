@@ -20,7 +20,9 @@ paws.core.operations.SPEC.LoadSpecFile module
 
 * spec_dict: dictionary with the following keys:
   * header: top level information from the SPEC file
-  * S\#: scan numbers are used as keys to access pandas DataFrames which hold the scan info
+  * S\#: scan numbers are used as keys to access dictionary with two keys:
+  *  scan: pandas DataFrame which holds the scan itself
+  *  meta: associated scan meta information
 
 Module contents
 ---------------
