@@ -33,7 +33,8 @@ outputs = OrderedDict(
         last_line_read=dict(
                 number=0,
                 text=''
-                )
+                ),
+        current_scan = None
         )
 
 class LoadSpecFile(Operation):
@@ -90,6 +91,18 @@ class LoadSpecFile(Operation):
                     state = 'head'
                 elif '#S' in key:
                     state = 'scan'
+                elif '#L' in key:
+                    self.outputs['current_scan'] = pd.DataFrame(columns=line[1:])
+                elif '#' not in key:
+                    try:
+                        cs_idx = self.outputs['current_scan'].index[-1] + 1
+                        self.outputs['current_scan'].loc[cs_idx] = soft_list_eval(line)
+                    except IndexError:
+                        cs_idx = 0
+                        self.outputs['current_scan'].loc[cs_idx] = soft_list_eval(line)
+                    except AttributeError:
+                        self.outputs['current_scan'] = pd.DataFrame(columns=line)
+                        self.outputs['current_scan'].loc[0] = soft_list_eval(line)
 
                 if state == 'head':
                     head.append(line)
