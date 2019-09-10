@@ -9,6 +9,8 @@ build
 dist
 doc/tex
 doc/html
+src
+src/*
 .pytest_cache
 *.cache
 *.egg-info

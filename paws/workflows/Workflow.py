@@ -1,5 +1,7 @@
 from __future__ import print_function
+from .. import pawstools
 import copy
+import os
 
 class Workflow(object):
     """Workflows use PAWS Operations and Plugins to do useful things."""

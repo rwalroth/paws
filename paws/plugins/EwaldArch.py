@@ -99,6 +99,9 @@ class EwaldArch(PawsPlugin):
         self.int_2d_norm = None
         self.int_2d_2theta = None
         self.int_2d_q = None
+        self.xyz = None # TODO: implement rotations to generate pixel coordinates
+        self.tcr = None
+        self.qchi = None
     
     
     def integrate_1d(self, numpoints=10000, radial_range=[0,180],
@@ -106,14 +109,14 @@ class EwaldArch(PawsPlugin):
         with self.arch_lock:
             self.map_norm = self.map_raw/self.scan_info[monitor]
             
-            ai = AzimuthalIntegrator(dist=self.poni.dist,
-                                     poni1=self.poni.poni1, 
-                                     poni2=self.poni.poni2, 
-                                     rot1=self.poni.rot1,
-                                     rot2=self.poni.rot2,
-                                     rot3=self.poni.rot3,
-                                     wavelength=self.poni.wavelength,
-                                     detector=self.poni.detector)
+            ai = AzimuthalIntegrator(dist=self.PONI.dist,
+                                     poni1=self.PONI.poni1, 
+                                     poni2=self.PONI.poni2, 
+                                     rot1=self.PONI.rot1,
+                                     rot2=self.PONI.rot2,
+                                     rot3=self.PONI.rot3,
+                                     wavelength=self.PONI.wavelength,
+                                     detector=self.PONI.detector)
             
             result = ai.integrate1d(self.map_norm, numpoints, unit=unit,
                                     radial_range=radial_range, mask=self.mask,
@@ -121,12 +124,12 @@ class EwaldArch(PawsPlugin):
             
             if unit == units.TTH_DEG:
                 self.int_1d_2theta = result.radial
-                self.int_1d_q = ((4*np.pi/self.poni.wavelength*1e10) 
+                self.int_1d_q = ((4*np.pi/self.PONI.wavelength*1e10) 
                                  * np.sin(np.radians(self.int_1d_2theta/2)))
             elif unit == units.Q_A:
                 self.int_1d_q = result.radial
                 self.int_1d_q = 2*np.degrees(
-                                    np.asin(self.int_1d_q*self.poni.wavelength
+                                    np.arcsin(self.int_1d_q*self.PONI.wavelength
                                             * 1e10/(4*np.pi)
                                         )
                                     )
