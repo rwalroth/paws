@@ -3,18 +3,21 @@ from threading import Thread
 import sys
 import os
 from .Commander import Commander
-from .Processor import Processor
+from .Processor import Processor, ProcEventHandler
 
 class Server(Process):
-    def __init__(self, data_queue, command_queue):
+    def __init__(self, data_queue, command_queue, data_path, client, host, 
+                 port):
         super(Server, self).__init__()
         self.command_q = command_queue
         self.data_q = data_queue
-        self.commander = Commander
+        self.commander = Commander()
         self.processor = Processor
+        self.data_path = data_path
+        self.client = client(host, port)
     
     def run(self):
-        self.connect()
+        self.client.start()
         while True:
             flag, command = self.command_q.get()
             self.command_q.task_done()
@@ -22,14 +25,10 @@ class Server(Process):
                 break
 
             else:
-                commander = self.commander(flag, command)
-                commander.start()
+                cmd, points = self.commander.translate(flag, command)
+                self.client.run_cmd(cmd)
 
-                processor = self.processor(flag, command, self.data_q)
+                processor = self.processor(points, self.data_path,
+                                           self.data_q)
                 processor.start()
-
-                commander.join()
                 processor.join()
-
-    def connect(self):
-        pass

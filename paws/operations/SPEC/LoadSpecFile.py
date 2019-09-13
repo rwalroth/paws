@@ -46,16 +46,10 @@ class LoadSpecFile(Operation):
     
     def run(self):
         last_line = self.outputs['last_line_read']['number']
-        # goes back to original directory when done
-        goback = os.getcwd()
-        try:
-            os.chdir(self.inputs['spec_file_path'])
-            filename = self.inputs['spec_file_name']
-            with open(filename, 'r') as file:
-                self._read_spec(file, last_line)
-            
-        finally:
-            os.chdir(goback)
+        full_path = os.path.join(self.inputs['spec_file_path'],
+                                 self.inputs['spec_file_name'])
+        with open(full_path, 'r') as file:
+            self._read_spec(file)
         
         return self.outputs
     

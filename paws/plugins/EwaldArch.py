@@ -44,14 +44,17 @@ data contained in an EwaldArch object.
 """
 import sys
 import os
+import h5py
 from threading import Condition
 from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 from pyFAI import units
 import numpy as np
+import yaml
 
 from .PawsPlugin import PawsPlugin
 
 from .. import pawstools
+from ..containers import PONI
 
 
 class EwaldArch(PawsPlugin):
@@ -81,11 +84,14 @@ class EwaldArch(PawsPlugin):
         integrate_2d: integrate the image data in 2D
     """
     
-    def __init__(self, map_raw=None, PONI=None, mask=None, scan_info=None):
+    def __init__(self, idx=None, map_raw=None, PONI=None, mask=None,
+                 scan_info=None, file_lock=Condition()):
+        self.idx = idx
         self.map_raw = map_raw
         self.mask = mask
         self.PONI = PONI
         self.scan_info = scan_info
+        self.file_lock = file_lock
         self.arch_lock = Condition()
         self.map_norm = None
         self.map_q = None
@@ -108,6 +114,8 @@ class EwaldArch(PawsPlugin):
                      monitor='i0',  unit=units.TTH_DEG, **kwargs):
         with self.arch_lock:
             self.map_norm = self.map_raw/self.scan_info[monitor]
+            if self.mask is None:
+                self.mask_from_raw()
             
             ai = AzimuthalIntegrator(dist=self.PONI.dist,
                                      poni1=self.PONI.poni1, 
@@ -143,6 +151,9 @@ class EwaldArch(PawsPlugin):
         with self.arch_lock:
             pass
     
+    def mask_from_raw(self):
+        with self.arch_lock:
+            self.mask = np.where(self.map_raw < 0, 1, 0)
     
     def set_map_raw(self, new_data):
         with self.arch_lock:
@@ -162,4 +173,68 @@ class EwaldArch(PawsPlugin):
     def set_scan_info(self, new_data):
         with self.arch_lock:
             self.scan_info = new_data
+    
+    def save_to_h5(self, file):
+        with self.file_lock:
+            if str(self.idx) in file:
+                del(file[str(self.idx)])
+            grp = file.create_group(str(self.idx))
+            for name in [
+                "map_raw",
+                "set_mask",
+                "map_norm",
+                "map_q",
+                "int_1d_raw",
+                "int_1d_pcount",
+                "int_1d_norm",
+                "int_1d_2theta",
+                "int_1d_q",
+                "int_2d_raw",
+                "int_2d_pcount",
+                "int_2d_norm",
+                "int_2d_2theta",
+                "int_2d_q",
+                "xyz",
+                "tcr",
+                "qchi"
+                ]:
+                data = self.__getattribute__(name)
+                if data is None:
+                    data = h5py.Empty("f")
+                grp.create_dataset(name, data=data)
+            grp.create_dataset('PONI', data=np.string_(yaml.dump(self.PONI.to_dict())))
+            grp.create_dataset('scan_info', data=np.string_(yaml.dump(self.scan_info)))
+    
+    def load_from_h5(self, file):
+        with self.file_lock:
+            if str(self.idx) not in file:
+                return "No data can be found"
+            grp = file[str(self.idx)]
+            for name in [
+                "map_raw",
+                "set_mask",
+                "map_norm",
+                "map_q",
+                "int_1d_raw",
+                "int_1d_pcount",
+                "int_1d_norm",
+                "int_1d_2theta",
+                "int_1d_q",
+                "int_2d_raw",
+                "int_2d_pcount",
+                "int_2d_norm",
+                "int_2d_2theta",
+                "int_2d_q",
+                "xyz",
+                "tcr",
+                "qchi"
+                ]:
+                data = grp[name]
+                if data == h5py.Empty("f"):
+                    data = None
+                else:
+                    data = data[()]
+                self.__setattr__(name, data)
+            self.PONI = PONI.from_yaml(grp['PONI'])
+            self.scan_info = yaml.safe_load(grp['scan_info'])
     
