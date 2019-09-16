@@ -4,6 +4,8 @@ import os
 import re
 import string 
 from collections import OrderedDict
+import h5py
+import numpy as np
 
 import yaml
 
@@ -281,5 +283,80 @@ class DictTree(object):
             except:
                 return '{}'.format(itm)
         return tstr
+
+def dict_to_h5(data, grp):
+    """Adds dictionary data to hdf5 group with same keys as dictionary.
+    Dictionary keys must either be strings or convertable to strings. If data
+    raises TypeError in create_dataset, will first attempt to convert the 
+    data to string and will use yaml as a last resort.
+
+    args:
+        data: dictionary to add to hdf5
+        grp: h5py group object to add the data to
+    
+    returns:
+        None
+    """
+    
+    for key in data:
+        s_key = str(key)
+        sub_data = data[key]
+        if type(sub_data) == dict:
+            new_grp = grp.create_group(s_key)
+            dict_to_h5(sub_data, new_grp)
+        
+        elif type(sub_data) == str:
+            grp.create_dataset(s_key, data=np.string_(sub_data))
+        
+        else:
+            try:
+                grp.create_dataset(s_key, data=sub_data)
+            
+            except TypeError:
+                try:
+                    grp.create_dataset(s_key, data=np.string_(sub_data))
+                
+                except:
+                    y_string = yaml.dump(sub_data)
+                    grp.create_dataset(s_key, data=np.string_(y_string))
+
+
+def h5_to_dict(grp):
+    """Converts h5py group to dictionary. Attempts to decode any byte strings
+    and use scalar keys where possible. Preserves shape information and works 
+    with nested groups.
+
+    args:
+        grp: h5py group object
+    
+    returns:
+        data: dictionary of data from h5py group
+    """
+    data = {}
+    for key in grp.keys():
+        try:
+            e_key = eval(key, {})
+        except:
+            e_key = key
+
+        if type(grp[key]) == h5py._hl.group.Group:
+            data[e_key] = h5_to_dict(grp[key])
+        
+        elif grp[key].shape == ():
+            temp = grp[key][...].item()
+            if type(temp) == bytes:
+                temp = temp.decode()
+            if temp == 'None':
+                data[e_key] = None
+            else:
+                data[e_key] = temp
+
+
+        else:
+            data[e_key] = grp[key][()]
+    
+    return data
+
+
 
 
