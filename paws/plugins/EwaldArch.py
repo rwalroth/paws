@@ -84,8 +84,8 @@ class EwaldArch(PawsPlugin):
         integrate_2d: integrate the image data in 2D
     """
     
-    def __init__(self, idx=None, map_raw=None, PONI=None, mask=None,
-                 scan_info=None, file_lock=Condition()):
+    def __init__(self, idx=None, map_raw=None, PONI=PONI(), mask=None,
+                 scan_info={}, file_lock=Condition()):
         self.idx = idx
         self.map_raw = map_raw
         self.mask = mask
@@ -202,8 +202,10 @@ class EwaldArch(PawsPlugin):
                 if data is None:
                     data = h5py.Empty("f")
                 grp.create_dataset(name, data=data)
-            grp.create_dataset('PONI', data=np.string_(yaml.dump(self.PONI.to_dict())))
-            grp.create_dataset('scan_info', data=np.string_(yaml.dump(self.scan_info)))
+            grp.create_group('PONI')
+            pawstools.dict_to_h5(self.PONI.to_dict(), grp['PONI'])
+            grp.create_group('scan_info')
+            pawstools.dict_to_h5(self.scan_info, grp['scan_info'])
     
     def load_from_h5(self, file):
         with self.file_lock:
@@ -232,9 +234,11 @@ class EwaldArch(PawsPlugin):
                 data = grp[name]
                 if data == h5py.Empty("f"):
                     data = None
+                elif data.shape == ():
+                    data = data[...].item()
                 else:
                     data = data[()]
                 self.__setattr__(name, data)
-            self.PONI = PONI.from_yaml(grp['PONI'])
-            self.scan_info = yaml.safe_load(grp['scan_info'])
+            self.PONI = PONI.from_yamdict(pawstools.h5_to_dict(grp['PONI']))
+            self.scan_info = pawstools.h5_to_dict(grp['scan_info'])
     
