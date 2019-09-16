@@ -90,57 +90,66 @@ class EwaldArch(PawsPlugin):
         self.map_raw = map_raw
         self.mask = mask
         self.PONI = PONI
+        self.integrator = AzimuthalIntegrator(
+            dist=self.PONI.dist,
+            poni1=self.PONI.poni1, 
+            poni2=self.PONI.poni2, 
+            rot1=self.PONI.rot1,
+            rot2=self.PONI.rot2,
+            rot3=self.PONI.rot3,
+            wavelength=self.PONI.wavelength,
+            detector=self.PONI.detector
+        )
         self.scan_info = scan_info
         self.file_lock = file_lock
         self.arch_lock = Condition()
-        self.map_norm = None
-        self.map_q = None
-        self.int_1d_raw = None
-        self.int_1d_pcount = None
-        self.int_1d_norm = None
-        self.int_1d_2theta = None
-        self.int_1d_q = None
-        self.int_2d_raw = None
-        self.int_2d_pcount = None
-        self.int_2d_norm = None
-        self.int_2d_2theta = None
-        self.int_2d_q = None
+        self.map_norm = 0
+        self.map_q = 0
+        self.int_1d_raw = 0
+        self.int_1d_pcount = 0
+        self.int_1d_norm = 0
+        self.int_1d_2theta = 0
+        self.int_1d_q = 0
+        self.int_2d_raw = 0
+        self.int_2d_pcount = 0
+        self.int_2d_norm = 0
+        self.int_2d_2theta = 0
+        self.int_2d_q = 0
         self.xyz = None # TODO: implement rotations to generate pixel coordinates
         self.tcr = None
         self.qchi = None
     
     
     def integrate_1d(self, numpoints=10000, radial_range=[0,180],
-                     monitor='i0',  unit=units.TTH_DEG, **kwargs):
+                     monitor='i0', unit=units.TTH_DEG, **kwargs):
         with self.arch_lock:
             self.map_norm = self.map_raw/self.scan_info[monitor]
             if self.mask is None:
                 self.mask_from_raw()
             
-            ai = AzimuthalIntegrator(dist=self.PONI.dist,
-                                     poni1=self.PONI.poni1, 
-                                     poni2=self.PONI.poni2, 
-                                     rot1=self.PONI.rot1,
-                                     rot2=self.PONI.rot2,
-                                     rot3=self.PONI.rot3,
-                                     wavelength=self.PONI.wavelength,
-                                     detector=self.PONI.detector)
-            
-            result = ai.integrate1d(self.map_norm, numpoints, unit=unit,
-                                    radial_range=radial_range, mask=self.mask,
-                                    **kwargs)
+            result = self.integrator.integrate1d(
+                self.map_norm, numpoints, unit=unit, radial_range=radial_range, 
+                mask=self.mask, **kwargs
+            )
             
             if unit == units.TTH_DEG:
                 self.int_1d_2theta = result.radial
-                self.int_1d_q = ((4*np.pi/self.PONI.wavelength*1e10) 
-                                 * np.sin(np.radians(self.int_1d_2theta/2)))
+                self.int_1d_q = (
+                    (4 * np.pi / self.PONI.wavelength*1e10)
+                    * np.sin(np.radians(self.int_1d_2theta / 2))
+                )
             elif unit == units.Q_A:
                 self.int_1d_q = result.radial
-                self.int_1d_q = 2*np.degrees(
-                                    np.arcsin(self.int_1d_q*self.PONI.wavelength
-                                            * 1e10/(4*np.pi)
-                                        )
-                                    )
+                self.int_1d_q = (
+                    2*np.degrees(
+                        np.arcsin(
+                            self.int_1d_q *
+                            self.PONI.wavelength *
+                            1e10 /
+                            (4 * np.pi)
+                        )
+                    )
+                )
             # TODO: implement other unit options for unit
             self.int_1d_pcount = result._count
             self.int_1d_raw = result._sum_signal
@@ -180,24 +189,10 @@ class EwaldArch(PawsPlugin):
                 del(file[str(self.idx)])
             grp = file.create_group(str(self.idx))
             for name in [
-                "map_raw",
-                "set_mask",
-                "map_norm",
-                "map_q",
-                "int_1d_raw",
-                "int_1d_pcount",
-                "int_1d_norm",
-                "int_1d_2theta",
-                "int_1d_q",
-                "int_2d_raw",
-                "int_2d_pcount",
-                "int_2d_norm",
-                "int_2d_2theta",
-                "int_2d_q",
-                "xyz",
-                "tcr",
-                "qchi"
-                ]:
+                    "map_raw", "set_mask", "map_norm", "map_q", "int_1d_raw",
+                    "int_1d_pcount", "int_1d_norm", "int_1d_2theta", "int_1d_q",
+                    "int_2d_raw", "int_2d_pcount", "int_2d_norm", 
+                    "int_2d_2theta", "int_2d_q", "xyz", "tcr", "qchi"]:
                 data = self.__getattribute__(name)
                 if data is None:
                     data = h5py.Empty("f")
@@ -213,24 +208,10 @@ class EwaldArch(PawsPlugin):
                 return "No data can be found"
             grp = file[str(self.idx)]
             for name in [
-                "map_raw",
-                "set_mask",
-                "map_norm",
-                "map_q",
-                "int_1d_raw",
-                "int_1d_pcount",
-                "int_1d_norm",
-                "int_1d_2theta",
-                "int_1d_q",
-                "int_2d_raw",
-                "int_2d_pcount",
-                "int_2d_norm",
-                "int_2d_2theta",
-                "int_2d_q",
-                "xyz",
-                "tcr",
-                "qchi"
-                ]:
+                    "map_raw", "set_mask", "map_norm", "map_q", "int_1d_raw",
+                    "int_1d_pcount", "int_1d_norm", "int_1d_2theta", "int_1d_q",
+                    "int_2d_raw", "int_2d_pcount", "int_2d_norm",
+                    "int_2d_2theta", "int_2d_q", "xyz", "tcr", "qchi"]:
                 data = grp[name]
                 if data == h5py.Empty("f"):
                     data = None
