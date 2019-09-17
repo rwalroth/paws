@@ -351,6 +351,8 @@ def h5_to_dict(grp):
             else:
                 data[e_key] = temp
 
+        elif grp[key].shape is None:
+            data[e_key] = None
 
         else:
             data[e_key] = grp[key][()]

@@ -66,8 +66,8 @@ class EwaldArch(PawsPlugin):
         mask: map of pixels to be masked out of integration
         PONI: poni data for integration
         int_raw: raw integrated 1D pattern
-        int_pcount: values to use for normalizing the 1D pattern by number
-            of pixels in each two-theta bin
+        int_pcount: values to use for normalizing the 1D pattern by
+            number of pixels in each two-theta bin
         int_norm: normalized 1D pattern
         int_2theta: 1D 2 theta array
         int_q: q values for 1D array
@@ -79,8 +79,8 @@ class EwaldArch(PawsPlugin):
             access data at a time
 
     Methods:
-        integrate_1d: integrate the image data to create I, 2theta, q, and
-            normalization arrays
+        integrate_1d: integrate the image data to create I, 2theta, q,
+            and normalization arrays
         integrate_2d: integrate the image data in 2D
     """
     
@@ -190,10 +190,10 @@ class EwaldArch(PawsPlugin):
             grp = file.create_group(str(self.idx))
             for name in [
                     "map_raw", "set_mask", "map_norm", "map_q", "int_1d_raw",
-                    "int_1d_pcount", "int_1d_norm", "int_1d_2theta", "int_1d_q",
-                    "int_2d_raw", "int_2d_pcount", "int_2d_norm", 
+                    "int_1d_pcount", "int_1d_norm", "int_1d_2theta", 
+                    "int_1d_q", "int_2d_raw", "int_2d_pcount", "int_2d_norm", 
                     "int_2d_2theta", "int_2d_q", "xyz", "tcr", "qchi"]:
-                data = self.__getattribute__(name)
+                data = getattr(self, name)
                 if data is None:
                     data = h5py.Empty("f")
                 grp.create_dataset(name, data=data)
@@ -209,17 +209,27 @@ class EwaldArch(PawsPlugin):
             grp = file[str(self.idx)]
             for name in [
                     "map_raw", "set_mask", "map_norm", "map_q", "int_1d_raw",
-                    "int_1d_pcount", "int_1d_norm", "int_1d_2theta", "int_1d_q",
-                    "int_2d_raw", "int_2d_pcount", "int_2d_norm",
+                    "int_1d_pcount", "int_1d_norm", "int_1d_2theta", 
+                    "int_1d_q", "int_2d_raw", "int_2d_pcount", "int_2d_norm",
                     "int_2d_2theta", "int_2d_q", "xyz", "tcr", "qchi"]:
                 data = grp[name]
-                if data == h5py.Empty("f"):
+                if data == h5py.Empty("f") or data.shape is None:
                     data = None
                 elif data.shape == ():
                     data = data[...].item()
                 else:
                     data = data[()]
-                self.__setattr__(name, data)
+                setattr(self, name, data)
             self.PONI = PONI.from_yamdict(pawstools.h5_to_dict(grp['PONI']))
+            self.integrator = AzimuthalIntegrator(
+                dist=self.PONI.dist,
+                poni1=self.PONI.poni1, 
+                poni2=self.PONI.poni2, 
+                rot1=self.PONI.rot1,
+                rot2=self.PONI.rot2,
+                rot3=self.PONI.rot3,
+                wavelength=self.PONI.wavelength,
+                detector=self.PONI.detector
+            )
             self.scan_info = pawstools.h5_to_dict(grp['scan_info'])
     

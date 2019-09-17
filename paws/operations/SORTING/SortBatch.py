@@ -2,8 +2,7 @@ from collections import OrderedDict
 import copy
 
 import numpy as np
-
-from .operations.Operation import Operation
+from ..Operation import Operation
 
 inputs = OrderedDict(
     batch_outputs={},
