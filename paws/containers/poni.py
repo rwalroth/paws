@@ -12,16 +12,17 @@ class PONI(object):
         'Rot3': 'rot3',
         'Wavelength': 'wavelength'
     }
-    def __init__(self, input=None):
-        if input is None:
-            self.dist = 0
-            self.poni1 = 0
-            self.poni2 = 0
-            self.rot1 = 0
-            self.rot2 = 0
-            self.rot3 = 0
-            self.wavelength = 1e-10
-            self.detector = Detector(100e-6, 100e-6)
+    def __init__(self, dist=0, poni1=0, poni2=0, rot1=0, rot2=0, rot3=0, 
+                 wavelength=1e-10, detector=Detector(100e-6, 100e-6)):
+        self.dist = dist
+        self.poni1 = poni1 
+        self.poni2 = poni2 
+        self.rot1 = rot1 
+        self.rot2 = rot2 
+        self.rot3 = rot3 
+        self.wavelength = wavelength
+        self.detector = detector
+
     
     def to_dict(self):
         return {
