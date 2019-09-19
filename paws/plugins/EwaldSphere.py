@@ -6,28 +6,25 @@ import copy
 import numpy as np
 
 from .PawsPlugin import PawsPlugin
-from .EwaldArch import EwaldArch, parse_unit, div0
+from .EwaldArch import EwaldArch, parse_unit
 from .. import pawstools
 
 class EwaldSphere(PawsPlugin):
     def __init__(self, name='scan0', arches=[], data_file='scan0',
-                 scan_data=pd.DataFrame(), wavelength=1e-10, bai_1d_args={},
-                 bai_2d_args={}):
+                 scan_data=pd.DataFrame(), mg_args={'wavelength':1e-10}, 
+                 bai_1d_args={}, bai_2d_args={}):
         self.name = name
         self.arches = arches
         self.data_file = data_file
         self.scan_data = scan_data
+        self.mg_args = mg_args
+        self.multi_geo = MultiGeometry([a.integrator for a in arches], **mg_args)
         self.bai_1d_args = bai_1d_args
         self.bai_2d_args = bai_2d_args
-        self.mg_args = mg_args
-        self.multi_geo = MultiGeometry([a.integrator for a in arches], 
-                                       wavelength=wavelength)
-        self.mgi_1d_result = None
         self.mgi_1d_2theta = 0
         self.mgi_1d_q = 0
-        self.mg_2d_result = None
-        self.mg_2d_2theta = 0
-        self.mg_2d_q = 0
+        self.mgi_2d_2theta = 0
+        self.mgi_2d_q = 0
         self.file_lock = Condition()
         self.sphere_lock = Condition()
         self.bai_1d_raw = 0
@@ -41,7 +38,7 @@ class EwaldSphere(PawsPlugin):
         self.bai_2d_2theta = 0
         self.bai_2d_q = 0
 
-    def add_arch(self, arch=None, calculate=True, update=True, get_si=True, 
+    def add_arch(self, arch=None, calculate=True, update=True, get_sd=True, 
                  **kwargs):
         with self.sphere_lock:
             if arch is None:
@@ -54,7 +51,7 @@ class EwaldSphere(PawsPlugin):
             arch.file_lock = self.file_lock
             self.arches.append(arch)
             self.arches = sorted(self.arches, key=lambda a: a.idx)
-            if arch.scan_info != {} and get_si:
+            if arch.scan_info != {} and get_sd:
                 if len(self.scan_data.columns) > 0:
                     try:
                         self.scan_data.loc[arch.idx] = arch.scan_info
@@ -62,9 +59,8 @@ class EwaldSphere(PawsPlugin):
                         print('Mismatched columns')
                 else:
                     self.scan_data = pd.DataFrame(
-                        columns = arch.scan_info.keys()
+                        arch.scan_info, index=[arch.idx]
                     )
-                    self.scan_data.loc[arch.idx] = arch.scan_info
             self.scan_data.sort_index(inplace=True)
             if update:
                 self.multi_geo = MultiGeometry(
@@ -87,7 +83,7 @@ class EwaldSphere(PawsPlugin):
     def _update_bai_1d(self, arch):
         self.bai_1d_raw += arch.int_1d_raw
         self.bai_1d_pcount += arch.int_1d_pcount
-        self.bai_1d_norm = div0(self.bai_1d_raw, self.bai_1d_pcount)
+        self.bai_1d_norm = pawstools.div0(self.bai_1d_raw, self.bai_1d_pcount)
         self.bai_1d_2theta = arch.int_1d_2theta
         self.bai_1d_q = arch.int_1d_q
     
@@ -96,8 +92,9 @@ class EwaldSphere(PawsPlugin):
             self.multi_geo = MultiGeometry(
                 [a.integrator for a in self.arches], **args
             )
+            self.mg_args = args
                 
-    def mg_integrate_1d(self, monitor=None, **kwargs):
+    def multigeometry_integrate_1d(self, monitor=None, **kwargs):
         with self.sphere_lock:
             lst_mask = [a.mask for a in self.arches]
             if monitor is None:
@@ -135,19 +132,45 @@ class EwaldSphere(PawsPlugin):
             for arch in self.arches:
                 arch.save_to_h5(grp['arches'])
 
-            for name in [
-                    "bai_1d_raw", "bai_1d_pcount", "bai_1d_norm", 
+            lst_attr = [
+                "data_file", "scan_data", "mg_args", "bai_1d_args", 
+                "bai_2d_args", "mgi_1d_2theta", "mgi_1d_q", "mgi_2d_2theta", 
+                "mgi_2d_q", "bai_1d_raw", "bai_1d_pcount", "bai_1d_norm", 
+                "bai_1d_2theta", "bai_1d_q", "bai_2d_raw", "bai_2d_pcount", 
+                "bai_2d_norm", "bai_2d_2theta", "bai_2d_q"
+            ]
+            pawstools.attributes_to_h5(self, lst_attr, grp)
+    
+    def load_from_h5(self, file):
+        with self.file_lock:
+            with self.sphere_lock:
+                if self.name not in file:
+                    return "No data can be found"
+                grp = file[self.name]
+
+                self.arches = []
+                for key in grp['arches'].keys():
+                    arch = EwaldArch(idx=int(key))
+                    arch.load_from_h5(grp['arches'])
+                    self.add_arch(
+                        arch.copy(), calculate=False, update=False, 
+                        get_sd=False
+                    )
+
+                lst_attr = [
+                    "data_file", "scan_data", "mg_args", "bai_1d_args", 
+                    "bai_2d_args", "mgi_1d_2theta", "mgi_1d_q", "mgi_2d_2theta", 
+                    "mgi_2d_q", "bai_1d_raw", "bai_1d_pcount", "bai_1d_norm", 
                     "bai_1d_2theta", "bai_1d_q", "bai_2d_raw", "bai_2d_pcount", 
-                    "bai_2d_norm", "bai_2d_2theta", "bai_2d_q"]:
-                data = getattr(self, name)
-                grp.create_dataset(name, data=data)
+                    "bai_2d_norm", "bai_2d_2theta", "bai_2d_q"
+                ]
+                pawstools.attributes_to_h5(self, lst_attr, grp)
 
-            for name in ("bai_1d_args", "bai_2d_args", "mg_args"):
-                grp.create_group(name)
-                pawstools.dict_to_h5(getattr(self, name), grp[name])
+                self.set_multi_geo(**self.mg_args)
+            
+            
 
-            grp.create_group('scan_data')
-            pawstools.dict_to_h5(self.scan_data.to_dict(), grp['scan_data'])
+            
 
 
 

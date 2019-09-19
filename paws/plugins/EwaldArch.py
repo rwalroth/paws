@@ -93,13 +93,6 @@ def parse_unit(result, wavelength):
     # TODO: implement other unit options for unit
     return int_1d_2theta, int_1d_q
 
-def div0( a, b ):
-    """ ignore / 0, div0( [-1, 0, 1], 0 ) -> [0, 0, 0] """
-    with np.errstate(divide='ignore', invalid='ignore'):
-        c = np.true_divide( a, b )
-        c[ ~ np.isfinite( c )] = 0  # -inf inf NaN
-    return c
-
 class EwaldArch(PawsPlugin):
     """Class for storing area detector data collected in
     X-ray diffraction experiments.
@@ -128,15 +121,17 @@ class EwaldArch(PawsPlugin):
     """
     
     def __init__(self, idx=None, map_raw=None, PONI=PONI(), mask=None,
-                 scan_info={}, file_lock=Condition()):
+                 scan_info={}, ai_args={}, file_lock=Condition()):
         self.idx = idx
         self.map_raw = map_raw
+        self.PONI = PONI
         if mask is None and map_raw is not None:
             self.mask = np.where(map_raw < 0, 1, 0)
         else:
             self.mask = mask
-        self.mask = mask
-        self.PONI = PONI
+        self.scan_info = scan_info
+        self.ai_args = ai_args
+        self.file_lock = file_lock
         self.integrator = AzimuthalIntegrator(
             dist=self.PONI.dist,
             poni1=self.PONI.poni1, 
@@ -145,10 +140,9 @@ class EwaldArch(PawsPlugin):
             rot2=self.PONI.rot2,
             rot3=self.PONI.rot3,
             wavelength=self.PONI.wavelength,
-            detector=self.PONI.detector
+            detector=self.PONI.detector,
+            **ai_args
         )
-        self.scan_info = scan_info
-        self.file_lock = file_lock
         self.arch_lock = Condition()
         self.map_norm = 0
         self.map_q = 0
@@ -187,7 +181,7 @@ class EwaldArch(PawsPlugin):
             
             self.int_1d_pcount = result._count
             self.int_1d_raw = result._sum_signal
-            self.int_1d_norm = div0(self.int_1d_raw, self.int_1d_pcount)
+            self.int_1d_norm = pawstools.div0(self.int_1d_raw, self.int_1d_pcount)
         return result
  
     
@@ -197,6 +191,7 @@ class EwaldArch(PawsPlugin):
     
     def set_integrator(self, **args):
         with self.arch_lock:
+            self.ai_args = args
             self.integrator = AzimuthalIntegrator(
                 dist=self.PONI.dist,
                 poni1=self.PONI.poni1, 
@@ -236,56 +231,51 @@ class EwaldArch(PawsPlugin):
             if str(self.idx) in file:
                 del(file[str(self.idx)])
             grp = file.create_group(str(self.idx))
-            for name in [
-                    "map_raw", "set_mask", "map_norm", "map_q", "int_1d_raw",
-                    "int_1d_pcount", "int_1d_norm", "int_1d_2theta", 
-                    "int_1d_q", "int_2d_raw", "int_2d_pcount", "int_2d_norm", 
-                    "int_2d_2theta", "int_2d_q", "xyz", "tcr", "qchi"]:
-                data = getattr(self, name)
-                if data is None:
-                    data = h5py.Empty("f")
-                grp.create_dataset(name, data=data)
+            lst_attr = [
+                "map_raw", "mask", "map_norm", "map_q", "int_1d_raw", 
+                "int_1d_pcount", "int_1d_norm", "int_1d_2theta",  "int_1d_q", 
+                "int_2d_raw", "int_2d_pcount", "int_2d_norm",  "int_2d_2theta", 
+                "int_2d_q", "xyz", "tcr", "qchi", "scan_info", "ai_args"
+            ]
+            pawstools.attributes_to_h5(self, lst_attr, grp)
             grp.create_group('PONI')
             pawstools.dict_to_h5(self.PONI.to_dict(), grp['PONI'])
-            grp.create_group('scan_info')
-            pawstools.dict_to_h5(self.scan_info, grp['scan_info'])
     
     def load_from_h5(self, file):
         with self.file_lock:
-            if str(self.idx) not in file:
-                return "No data can be found"
-            grp = file[str(self.idx)]
-            for name in [
-                    "map_raw", "set_mask", "map_norm", "map_q", "int_1d_raw",
-                    "int_1d_pcount", "int_1d_norm", "int_1d_2theta", 
-                    "int_1d_q", "int_2d_raw", "int_2d_pcount", "int_2d_norm",
-                    "int_2d_2theta", "int_2d_q", "xyz", "tcr", "qchi"]:
-                data = grp[name]
-                if data == h5py.Empty("f") or data.shape is None:
-                    data = None
-                elif data.shape == ():
-                    data = data[...].item()
-                else:
-                    data = data[()]
-                setattr(self, name, data)
-            self.PONI = PONI.from_yamdict(pawstools.h5_to_dict(grp['PONI']))
-            self.integrator = AzimuthalIntegrator(
-                dist=self.PONI.dist,
-                poni1=self.PONI.poni1, 
-                poni2=self.PONI.poni2, 
-                rot1=self.PONI.rot1,
-                rot2=self.PONI.rot2,
-                rot3=self.PONI.rot3,
-                wavelength=self.PONI.wavelength,
-                detector=self.PONI.detector
+            with self.arch_lock:
+                if str(self.idx) not in file:
+                    return "No data can be found"
+                grp = file[str(self.idx)]
+                lst_attr = [
+                    "map_raw", "mask", "map_norm", "map_q", "int_1d_raw", 
+                    "int_1d_pcount", "int_1d_norm", "int_1d_2theta",  
+                    "int_1d_q", "int_2d_raw", "int_2d_pcount", "int_2d_norm",  
+                    "int_2d_2theta", "int_2d_q", "xyz", "tcr", "qchi", 
+                    "scan_info", "ai_args"
+                ]
+                pawstools.h5_to_attributes(self, lst_attr, grp)
+                self.PONI = PONI.from_yamdict(
+                    pawstools.h5_to_dict(grp['PONI'])
+                )
+                self.integrator = AzimuthalIntegrator(
+                    dist=self.PONI.dist,
+                    poni1=self.PONI.poni1, 
+                    poni2=self.PONI.poni2, 
+                    rot1=self.PONI.rot1,
+                    rot2=self.PONI.rot2,
+                    rot3=self.PONI.rot3,
+                    wavelength=self.PONI.wavelength,
+                    detector=self.PONI.detector,
+                    **self.ai_args
             )
-            self.scan_info = pawstools.h5_to_dict(grp['scan_info'])
     
     def copy(self):
         arch_copy = EwaldArch(
             copy.deepcopy(self.idx), copy.deepcopy(self.map_raw), 
             copy.deepcopy(self.PONI), copy.deepcopy(self.mask), 
-            copy.deepcopy(self.scan_info), self.file_lock
+            copy.deepcopy(self.scan_info), copy.deepcopy(self.ai_args),
+            self.file_lock
         )
         arch_copy.integrator = copy.deepcopy(self.integrator)
         arch_copy.arch_lock = Condition()
@@ -301,9 +291,9 @@ class EwaldArch(PawsPlugin):
         arch_copy.int_2d_norm = copy.deepcopy(self.int_2d_norm)
         arch_copy.int_2d_2theta = copy.deepcopy(self.int_2d_2theta)
         arch_copy.int_2d_q = copy.deepcopy(self.int_2d_q)
-        arch_copy.xyz = None # TODO: implement rotations to generate pixel coordinates
-        arch_copy.tcr = None
-        arch_copy.qchi = None
+        arch_copy.xyz = copy.deepcopy(self.xyz) # TODO: implement rotations to generate pixel coordinates
+        arch_copy.tcr = copy.deepcopy(self.tcr)
+        arch_copy.qchi = copy.deepcopy(self.qchi)
 
         return arch_copy
 
