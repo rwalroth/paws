@@ -8,6 +8,7 @@ import h5py
 import numpy as np
 
 import yaml
+import json
 
 from . import operations
 from . import workflows
@@ -284,11 +285,48 @@ class DictTree(object):
                 return '{}'.format(itm)
         return tstr
 
-def dict_to_h5(data, grp):
+
+def data_to_h5(data, grp, key, encoder='yaml'):
+    if data is None:
+        grp.create_dataset(key, data=h5py.Empty("f"))
+        grp[key].attrs['encoded'] = 'None'
+
+    elif type(data) == dict:
+        new_grp = grp.create_group(key)
+        new_grp.attrs['encoded'] = 'dict'
+        dict_to_h5(data, new_grp)
+    
+    elif type(data) == str:
+        grp.create_dataset(key, data=np.string_(data))
+        grp[key].attrs['encoded'] = 'str'
+    
+    else:
+        try:
+            grp.create_dataset(key, data=data)
+            grp[key].attrs['encoded'] = 'data'
+        
+        except TypeError:
+            print(f"TypeError, encoding {key} using {encoder}")
+            try:
+                if encoder == 'yaml':
+                    string = np.string_(yaml.dump(data))
+                elif encoder == 'json':
+                    string = np.string_(json.dumps(data))
+                grp.create_dataset(key, data=np.string_(string))
+                grp[key].attrs['encoded'] = encoder
+            except Exception as e:
+                print(e)
+                try:
+                    grp.create_dataset(key, data=np.string_(data))
+                    grp[key].attrs['encoded'] = 'unknown'
+                except Exception as e:
+                    print(e)
+                    print(f"Unable to dump {key}")
+
+
+def dict_to_h5(data, grp, **kwargs):
     """Adds dictionary data to hdf5 group with same keys as dictionary.
-    Dictionary keys must either be strings or convertable to strings. If data
-    raises TypeError in create_dataset, will first attempt to convert the 
-    data to string and will use yaml as a last resort.
+    See data_to_h5 for how datatypes are handled.
 
     args:
         data: dictionary to add to hdf5
@@ -297,34 +335,76 @@ def dict_to_h5(data, grp):
     returns:
         None
     """
-    
     for key in data:
         s_key = str(key)
         sub_data = data[key]
-        if type(sub_data) == dict:
-            new_grp = grp.create_group(s_key)
-            dict_to_h5(sub_data, new_grp)
-        
-        elif type(sub_data) == str:
-            grp.create_dataset(s_key, data=np.string_(sub_data))
-        
-        else:
+        data_to_h5(sub_data, grp, s_key, **kwargs)
+
+
+def attributes_to_h5(obj, lst_attr, grp, **kwargs):
+    """Function which takes a list of class attributes and stores them
+    in a provided h5py group. See data_to_h5 for how datatypes are
+    handled.
+    """
+    for attr in lst_attr:
+        data = getattr(obj, attr)
+        data_to_h5(data, grp, attr, **kwargs)
+
+
+def h5_to_data(grp, encoder=True, Loader=yaml.UnsafeLoader):
+    if encoder:
+        encoded = grp.attrs['encoded']
+        if encoded == 'None':
+            data = None
+
+        elif encoded == 'dict':
+            data = h5_to_dict(grp, encoder=encoder, Loader=Loader)
+
+        elif encoded == 'str':
+            data = grp[...].item().decode()
+
+        elif encoded == 'data':
+            if grp.shape == ():
+                data = grp[...].item()
+            else:
+                data = grp[()]
+
+        elif encoded == 'yaml':
+            data = yaml.load(grp[...].item(), Loader=Loader)
+
+        elif encoded == 'json':
+            data = json.loads(grp[...].item())
+
+        elif encoded == 'unknown':
             try:
-                grp.create_dataset(s_key, data=sub_data)
-            
-            except TypeError:
-                try:
-                    grp.create_dataset(s_key, data=np.string_(sub_data))
-                
-                except:
-                    y_string = yaml.dump(sub_data)
-                    grp.create_dataset(s_key, data=np.string_(y_string))
+                data = eval(grp[...].item())
+            except:
+                data = grp[...].item().decode()
+    else:
+        if type(grp) == h5py._hl.group.Group:
+            data = h5_to_dict(grp, encoder=encoder, Loader=Loader)
+        
+        elif grp.shape == ():
+            temp = grp[...].item()
+            if type(temp) == bytes:
+                temp = temp.decode()
+            if temp == 'None':
+                data = None
+            else:
+                data = temp
+
+        elif grp.shape is None:
+            data = None
+
+        else:
+            data = grp[()]
+    
+    return data
 
 
-def h5_to_dict(grp):
-    """Converts h5py group to dictionary. Attempts to decode any byte strings
-    and use scalar keys where possible. Preserves shape information and works 
-    with nested groups.
+def h5_to_dict(grp, **kwargs):
+    """Converts h5py group to dictionary. See h5_to_data for how
+    different datatypes are handled.
 
     args:
         grp: h5py group object
@@ -339,25 +419,23 @@ def h5_to_dict(grp):
         except:
             e_key = key
 
-        if type(grp[key]) == h5py._hl.group.Group:
-            data[e_key] = h5_to_dict(grp[key])
-        
-        elif grp[key].shape == ():
-            temp = grp[key][...].item()
-            if type(temp) == bytes:
-                temp = temp.decode()
-            if temp == 'None':
-                data[e_key] = None
-            else:
-                data[e_key] = temp
-
-        elif grp[key].shape is None:
-            data[e_key] = None
-
-        else:
-            data[e_key] = grp[key][()]
+        data[e_key] = h5_to_data(grp[key], **kwargs)
     
     return data
+
+
+def h5_to_attributes(obj, lst_attr, grp, **kwargs):
+    for attr in lst_attr:
+        data = h5_to_data(grp[attr], **kwargs)
+        setattr(obj, attr, data)
+
+
+def div0( a, b ):
+    """ ignore / 0, div0( [-1, 0, 1], 0 ) -> [0, 0, 0] """
+    with np.errstate(divide='ignore', invalid='ignore'):
+        c = np.true_divide( a, b )
+        c[ ~ np.isfinite( c )] = 0  # -inf inf NaN
+    return c
 
 
 
