@@ -41,7 +41,8 @@ class EwaldSphere(PawsPlugin):
         self.bai_2d_2theta = 0
         self.bai_2d_q = 0
 
-    def add_arch(self, arch=None, calculate=True, update=True, **kwargs):
+    def add_arch(self, arch=None, calculate=True, update=True, get_si=True, 
+                 **kwargs):
         with self.sphere_lock:
             if arch is None:
                 arch = EwaldArch(**kwargs)
@@ -53,13 +54,17 @@ class EwaldSphere(PawsPlugin):
             arch.file_lock = self.file_lock
             self.arches.append(arch)
             self.arches = sorted(self.arches, key=lambda a: a.idx)
-            try:
-                self.scan_data.loc[arch.idx] = pd.Series(arch.scan_info)
-            except ValueError:
-                self.scan_data = pd.DataFrame(
-                    columns = arch.scan_info.keys()
-                )
-                self.scan_data.loc[arch.idx] = pd.Series(arch.scan_info)
+            if arch.scan_info != {} and get_si:
+                if len(self.scan_data.columns) > 0:
+                    try:
+                        self.scan_data.loc[arch.idx] = arch.scan_info
+                    except ValueError:
+                        print('Mismatched columns')
+                else:
+                    self.scan_data = pd.DataFrame(
+                        columns = arch.scan_info.keys()
+                    )
+                    self.scan_data.loc[arch.idx] = arch.scan_info
             self.scan_data.sort_index(inplace=True)
             if update:
                 self.multi_geo = MultiGeometry(
