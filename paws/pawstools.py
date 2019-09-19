@@ -6,7 +6,7 @@ import string
 from collections import OrderedDict
 import h5py
 import numpy as np
-
+import pandas as pd
 import yaml
 import json
 
@@ -300,6 +300,16 @@ def data_to_h5(data, grp, key, encoder='yaml'):
         grp.create_dataset(key, data=np.string_(data))
         grp[key].attrs['encoded'] = 'str'
     
+    elif type(data) == pd.core.series.Series:
+        new_grp = grp.create_group(key)
+        new_grp.attrs['encoded'] = 'Series'
+        dict_to_h5(data.to_dict(), new_grp)
+    
+    elif type(data) == pd.core.frame.DataFrame:
+        new_grp = grp.create_group(key)
+        new_grp.attrs['encoded'] = 'DataFrame'
+        dict_to_h5(data.to_dict(), new_grp)
+    
     else:
         try:
             grp.create_dataset(key, data=data)
@@ -362,6 +372,14 @@ def h5_to_data(grp, encoder=True, Loader=yaml.UnsafeLoader):
 
         elif encoded == 'str':
             data = grp[...].item().decode()
+        
+        elif encoded == 'Series':
+            data = h5_to_dict(grp, encoder=encoder, Loader=Loader)
+            data = pd.Series(data)
+        
+        elif encoded == 'DataFrame':
+            data = h5_to_dict(grp, encoder=encoder, Loader=Loader)
+            data = pd.DataFrame(data)
 
         elif encoded == 'data':
             if grp.shape == ():
