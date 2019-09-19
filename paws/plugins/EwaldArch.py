@@ -168,11 +168,14 @@ class EwaldArch(PawsPlugin):
     
     
     def integrate_1d(self, numpoints=10000, radial_range=[0,180],
-                     monitor='i0', unit=units.TTH_DEG, **kwargs):
+                     monitor=None, unit=units.TTH_DEG, **kwargs):
         with self.arch_lock:
-            self.map_norm = self.map_raw/self.scan_info[monitor]
+            if monitor is not None:
+                self.map_norm = self.map_raw/self.scan_info[monitor]
+            else:
+                self.map_norm = self.map_raw
             if self.mask is None:
-                self.mask = self.mask_from_raw()
+                self.mask = np.where(self.map_raw < 0, 1, 0)
             
             result = self.integrator.integrate1d(
                 self.map_norm, numpoints, unit=unit, radial_range=radial_range, 
@@ -192,10 +195,6 @@ class EwaldArch(PawsPlugin):
         with self.arch_lock:
             pass
     
-    def mask_from_raw(self):
-        with self.arch_lock:
-            return np.where(self.map_raw < 0, 1, 0)
-    
     def set_integrator(self, **args):
         with self.arch_lock:
             self.integrator = AzimuthalIntegrator(
@@ -214,7 +213,7 @@ class EwaldArch(PawsPlugin):
         with self.arch_lock:
             self.map_raw = new_data
             if self.mask is None:
-                self.mask = self.mask_from_raw()
+                self.mask = np.where(self.map_raw < 0, 1, 0)
         return None
 
     

@@ -11,35 +11,35 @@ from .. import pawstools
 
 class EwaldSphere(PawsPlugin):
     def __init__(self, name='scan0', arches=[], data_file='scan0',
-                 scan_data=pd.DataFrame(), wavelength=1e-10, int_1d_args={},
-                 int_2d_args={}):
+                 scan_data=pd.DataFrame(), wavelength=1e-10, bai_1d_args={},
+                 bai_2d_args={}):
         self.name = name
         self.arches = arches
         self.data_file = data_file
         self.scan_data = scan_data
-        self.int_1d_args = int_1d_args
-        self.int_2d_args = int_2d_args
+        self.bai_1d_args = bai_1d_args
+        self.bai_2d_args = bai_2d_args
         self.mg_args = mg_args
         self.multi_geo = MultiGeometry([a.integrator for a in arches], 
                                        wavelength=wavelength)
-        self.mg_1d_result = None
-        self.mg_1d_2theta = 0
-        self.mg_1d_q = 0
+        self.mgi_1d_result = None
+        self.mgi_1d_2theta = 0
+        self.mgi_1d_q = 0
         self.mg_2d_result = None
         self.mg_2d_2theta = 0
         self.mg_2d_q = 0
         self.file_lock = Condition()
         self.sphere_lock = Condition()
-        self.int_1d_raw = 0
-        self.int_1d_pcount = 0
-        self.int_1d_norm = 0
-        self.int_1d_2theta = 0
-        self.int_1d_q = 0
-        self.int_2d_raw = 0
-        self.int_2d_pcount = 0
-        self.int_2d_norm = 0
-        self.int_2d_2theta = 0
-        self.int_2d_q = 0
+        self.bai_1d_raw = 0
+        self.bai_1d_pcount = 0
+        self.bai_1d_norm = 0
+        self.bai_1d_2theta = 0
+        self.bai_1d_q = 0
+        self.bai_2d_raw = 0
+        self.bai_2d_pcount = 0
+        self.bai_2d_norm = 0
+        self.bai_2d_2theta = 0
+        self.bai_2d_q = 0
 
     def add_arch(self, arch=None, calculate=True, update=True, **kwargs):
         with self.sphere_lock:
@@ -48,8 +48,8 @@ class EwaldSphere(PawsPlugin):
             else:
                 arch = arch.copy()
             if calculate:
-                arch.integrate_1d(**self.int_1d_args)
-                #arch.integrate_2d(**self.int_2d_args)
+                arch.integrate_1d(**self.bai_1d_args)
+                #arch.integrate_2d(**self.bai_2d_args)
             arch.file_lock = self.file_lock
             self.arches.append(arch)
             self.arches = sorted(self.arches, key=lambda a: a.idx)
@@ -65,26 +65,26 @@ class EwaldSphere(PawsPlugin):
                 self.multi_geo = MultiGeometry(
                     [a.integrator for a in self.arches], **self.mg_args
                 )
-                self._update_int_1d(arch)
-                #self._update_int_2d(arch)
+                self._update_bai_1d(arch)
+                #self._update_bai_2d(arch)
 
-    def integrate_all_1d(self, args=self.int_1d_args):
+    def by_arch_integrate_1d(self, args=self.bai_1d_args):
         with self.sphere_lock:
-            self.int_1d_raw = 0
-            self.int_1d_pcount = 0
-            self.int_1d_norm = 0
-            self.int_1d_2theta = 0
-            self.int_1d_q = 0
+            self.bai_1d_raw = 0
+            self.bai_1d_pcount = 0
+            self.bai_1d_norm = 0
+            self.bai_1d_2theta = 0
+            self.bai_1d_q = 0
             for arch in self.arches:
                 arch.integrate_1d(**args)
-                self._update_int_1d(arch)
+                self._update_bai_1d(arch)
     
-    def _update_int_1d(self, arch):
-        self.int_1d_raw += arch.int_1d_raw
-        self.int_1d_pcount += arch.int_1d_pcount
-        self.int_1d_norm = div0(self.int_1d_raw, self.int_1d_pcount)
-        self.int_1d_2theta = arch.int_1d_2theta
-        self.int_1d_q = arch.int_1d_q
+    def _update_bai_1d(self, arch):
+        self.bai_1d_raw += arch.int_1d_raw
+        self.bai_1d_pcount += arch.int_1d_pcount
+        self.bai_1d_norm = div0(self.bai_1d_raw, self.bai_1d_pcount)
+        self.bai_1d_2theta = arch.int_1d_2theta
+        self.bai_1d_q = arch.int_1d_q
     
     def set_multi_geo(self, **args):
         with self.sphere_lock:
@@ -113,9 +113,9 @@ class EwaldSphere(PawsPlugin):
                     normalization_factor=list(self.scan_data[monitor]), **kwargs
                 )
             
-            self.mg_1d_intensity = result.intensity
+            self.mgi_1d_intensity = result.intensity
 
-            self.mg_1d_2theta, self.mg_1d_q = parse_unit(
+            self.mgi_1d_2theta, self.mgi_1d_q = parse_unit(
                 result, self.multi_geo.wavelength)
         return result
 
@@ -131,13 +131,13 @@ class EwaldSphere(PawsPlugin):
                 arch.save_to_h5(grp['arches'])
 
             for name in [
-                    "int_1d_raw", "int_1d_pcount", "int_1d_norm", 
-                    "int_1d_2theta", "int_1d_q", "int_2d_raw", "int_2d_pcount", 
-                    "int_2d_norm", "int_2d_2theta", "int_2d_q"]:
+                    "bai_1d_raw", "bai_1d_pcount", "bai_1d_norm", 
+                    "bai_1d_2theta", "bai_1d_q", "bai_2d_raw", "bai_2d_pcount", 
+                    "bai_2d_norm", "bai_2d_2theta", "bai_2d_q"]:
                 data = getattr(self, name)
                 grp.create_dataset(name, data=data)
 
-            for name in ("int_1d_args", "int_2d_args", "mg_args"):
+            for name in ("bai_1d_args", "bai_2d_args", "mg_args"):
                 grp.create_group(name)
                 pawstools.dict_to_h5(getattr(self, name), grp[name])
 
