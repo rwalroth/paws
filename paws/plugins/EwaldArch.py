@@ -50,12 +50,55 @@ from pyFAI.azimuthalIntegrator import AzimuthalIntegrator
 from pyFAI import units
 import numpy as np
 import yaml
+import copy
 
 from .PawsPlugin import PawsPlugin
 
 from .. import pawstools
 from ..containers import PONI
 
+def parse_unit(result, wavelength):
+    """Helper function to take integrator result and return a two theta
+    and q array regardless of the unit used for integration.
+
+    args:
+        result: result from 1dintegrator
+        wavelength: wavelength for conversion in Angstroms
+    
+    returns:
+        int_1d_2theta: two theta array
+        int_1d_q: q array
+    """
+    if wavelength is None:
+        return result.radial, None
+
+    if result.unit == units.TTH_DEG:
+        int_1d_2theta = result.radial
+        int_1d_q = (
+            (4 * np.pi / PONI.wavelength*1e10)
+            * np.sin(np.radians(int_1d_2theta / 2))
+        )
+    elif result.unit == units.Q_A:
+        int_1d_q = result.radial
+        int_1d_2theta = (
+            2*np.degrees(
+                np.arcsin(
+                    int_1d_q *
+                    PONI.wavelength *
+                    1e10 /
+                    (4 * np.pi)
+                )
+            )
+        )
+    # TODO: implement other unit options for unit
+    return int_1d_2theta, int_1d_q
+
+def div0( a, b ):
+    """ ignore / 0, div0( [-1, 0, 1], 0 ) -> [0, 0, 0] """
+    with np.errstate(divide='ignore', invalid='ignore'):
+        c = np.true_divide( a, b )
+        c[ ~ np.isfinite( c )] = 0  # -inf inf NaN
+    return c
 
 class EwaldArch(PawsPlugin):
     """Class for storing area detector data collected in
@@ -88,6 +131,10 @@ class EwaldArch(PawsPlugin):
                  scan_info={}, file_lock=Condition()):
         self.idx = idx
         self.map_raw = map_raw
+        if mask is None and map_raw is not None:
+            self.mask = np.where(map_raw < 0, 1, 0)
+        else:
+            self.mask = mask
         self.mask = mask
         self.PONI = PONI
         self.integrator = AzimuthalIntegrator(
@@ -125,36 +172,21 @@ class EwaldArch(PawsPlugin):
         with self.arch_lock:
             self.map_norm = self.map_raw/self.scan_info[monitor]
             if self.mask is None:
-                self.mask_from_raw()
+                self.mask = self.mask_from_raw()
             
             result = self.integrator.integrate1d(
                 self.map_norm, numpoints, unit=unit, radial_range=radial_range, 
                 mask=self.mask, **kwargs
             )
             
-            if unit == units.TTH_DEG:
-                self.int_1d_2theta = result.radial
-                self.int_1d_q = (
-                    (4 * np.pi / self.PONI.wavelength*1e10)
-                    * np.sin(np.radians(self.int_1d_2theta / 2))
-                )
-            elif unit == units.Q_A:
-                self.int_1d_q = result.radial
-                self.int_1d_q = (
-                    2*np.degrees(
-                        np.arcsin(
-                            self.int_1d_q *
-                            self.PONI.wavelength *
-                            1e10 /
-                            (4 * np.pi)
-                        )
-                    )
-                )
-            # TODO: implement other unit options for unit
+            self.int_1d_2theta, self.int_1d_q = parse_unit(
+                result, self.PONI.wavelength)
+            
             self.int_1d_pcount = result._count
             self.int_1d_raw = result._sum_signal
-            self.int_1d_norm = self.int_1d_raw/self.int_1d_pcount
-    
+            self.int_1d_norm = div0(self.int_1d_raw, self.int_1d_pcount)
+        return result
+ 
     
     def integrate_2d(self):
         with self.arch_lock:
@@ -162,12 +194,29 @@ class EwaldArch(PawsPlugin):
     
     def mask_from_raw(self):
         with self.arch_lock:
-            self.mask = np.where(self.map_raw < 0, 1, 0)
+            return np.where(self.map_raw < 0, 1, 0)
     
+    def set_integrator(self, **args):
+        with self.arch_lock:
+            self.integrator = AzimuthalIntegrator(
+                dist=self.PONI.dist,
+                poni1=self.PONI.poni1, 
+                poni2=self.PONI.poni2, 
+                rot1=self.PONI.rot1,
+                rot2=self.PONI.rot2,
+                rot3=self.PONI.rot3,
+                wavelength=self.PONI.wavelength,
+                detector=self.PONI.detector,
+                **args
+            )
+
     def set_map_raw(self, new_data):
         with self.arch_lock:
             self.map_raw = new_data
-    
+            if self.mask is None:
+                self.mask = self.mask_from_raw()
+        return None
+
     
     def set_PONI(self, new_data):
         with self.arch_lock:
@@ -232,4 +281,31 @@ class EwaldArch(PawsPlugin):
                 detector=self.PONI.detector
             )
             self.scan_info = pawstools.h5_to_dict(grp['scan_info'])
+    
+    def copy(self):
+        arch_copy = EwaldArch(
+            copy.deepcopy(self.idx), copy.deepcopy(self.map_raw), 
+            copy.deepcopy(self.PONI), copy.deepcopy(self.mask), 
+            copy.deepcopy(self.scan_info), self.file_lock
+        )
+        arch_copy.integrator = copy.deepcopy(self.integrator)
+        arch_copy.arch_lock = Condition()
+        arch_copy.map_norm = copy.deepcopy(self.map_norm)
+        arch_copy.map_q = copy.deepcopy(self.map_q)
+        arch_copy.int_1d_raw = copy.deepcopy(self.int_1d_raw)
+        arch_copy.int_1d_pcount = copy.deepcopy(self.int_1d_pcount)
+        arch_copy.int_1d_norm = copy.deepcopy(self.int_1d_norm)
+        arch_copy.int_1d_2theta = copy.deepcopy(self.int_1d_2theta)
+        arch_copy.int_1d_q = copy.deepcopy(self.int_1d_q)
+        arch_copy.int_2d_raw = copy.deepcopy(self.int_2d_raw)
+        arch_copy.int_2d_pcount = copy.deepcopy(self.int_2d_pcount)
+        arch_copy.int_2d_norm = copy.deepcopy(self.int_2d_norm)
+        arch_copy.int_2d_2theta = copy.deepcopy(self.int_2d_2theta)
+        arch_copy.int_2d_q = copy.deepcopy(self.int_2d_q)
+        arch_copy.xyz = None # TODO: implement rotations to generate pixel coordinates
+        arch_copy.tcr = None
+        arch_copy.qchi = None
+
+        return arch_copy
+
     

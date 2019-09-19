@@ -2,15 +2,17 @@ import pandas as pd
 import h5py
 from threading import Condition
 from pyFAI.multi_geometry import MultiGeometry
+import copy
+import numpy as np
 
 from .PawsPlugin import PawsPlugin
-from .EwaldArch import EwaldArch
+from .EwaldArch import EwaldArch, parse_unit, div0
 from .. import pawstools
 
 class EwaldSphere(PawsPlugin):
     def __init__(self, name='scan0', arches=[], data_file='scan0',
-                 scan_data=pd.DataFrame(), int_1d_args={},
-                 int_2d_args={}, mg_args={}):
+                 scan_data=pd.DataFrame(), wavelength=1e-10, int_1d_args={},
+                 int_2d_args={}):
         self.name = name
         self.arches = arches
         self.data_file = data_file
@@ -18,10 +20,14 @@ class EwaldSphere(PawsPlugin):
         self.int_1d_args = int_1d_args
         self.int_2d_args = int_2d_args
         self.mg_args = mg_args
-        self.multiGeometry = MultiGeometry([a.integrator for a in self.arches],
-                                           **mg_args)
+        self.multi_geo = MultiGeometry([a.integrator for a in arches], 
+                                       wavelength=wavelength)
         self.mg_1d_result = None
+        self.mg_1d_2theta = 0
+        self.mg_1d_q = 0
         self.mg_2d_result = None
+        self.mg_2d_2theta = 0
+        self.mg_2d_q = 0
         self.file_lock = Condition()
         self.sphere_lock = Condition()
         self.int_1d_raw = 0
@@ -39,9 +45,11 @@ class EwaldSphere(PawsPlugin):
         with self.sphere_lock:
             if arch is None:
                 arch = EwaldArch(**kwargs)
+            else:
+                arch = arch.copy()
             if calculate:
                 arch.integrate_1d(**self.int_1d_args)
-                arch.integrate_2d(**self.int_2d_args)
+                #arch.integrate_2d(**self.int_2d_args)
             arch.file_lock = self.file_lock
             self.arches.append(arch)
             self.arches = sorted(self.arches, key=lambda a: a.idx)
@@ -54,37 +62,63 @@ class EwaldSphere(PawsPlugin):
                 self.scan_data.loc[arch.idx] = pd.Series(arch.scan_info)
             self.scan_data.sort_index(inplace=True)
             if update:
-                self.multiGeometry = MultiGeometry(
+                self.multi_geo = MultiGeometry(
                     [a.integrator for a in self.arches], **self.mg_args
                 )
-                self.int_1d_raw += arch.int_1d_raw
-                self.int_1d_pcount += arch.int_1d_pcount
-                self.int_1d_norm = self.int_1d_raw / self.int_1d_pcount
-                self.int_1d_2theta = arch.int_1d_2theta
-                self.int_1d_q = arch.int_1d_q
-                self.int_2d_raw += arch.int_2d_raw
-                self.int_2d_pcount += arch.int_2d_pcount
-                self.int_2d_norm = self.int_2d_raw / self.int_2d_pcount
-                self.int_2d_2theta = arch.int_2d_2theta
-                self.int_2d_q = arch.int_2d_q
+                self._update_int_1d(arch)
+                #self._update_int_2d(arch)
 
+    def integrate_all_1d(self, args=self.int_1d_args):
+        with self.sphere_lock:
+            self.int_1d_raw = 0
+            self.int_1d_pcount = 0
+            self.int_1d_norm = 0
+            self.int_1d_2theta = 0
+            self.int_1d_q = 0
+            for arch in self.arches:
+                arch.integrate_1d(**args)
+                self._update_int_1d(arch)
+    
+    def _update_int_1d(self, arch):
+        self.int_1d_raw += arch.int_1d_raw
+        self.int_1d_pcount += arch.int_1d_pcount
+        self.int_1d_norm = div0(self.int_1d_raw, self.int_1d_pcount)
+        self.int_1d_2theta = arch.int_1d_2theta
+        self.int_1d_q = arch.int_1d_q
+    
+    def set_multi_geo(self, **args):
+        with self.sphere_lock:
+            self.multi_geo = MultiGeometry(
+                [a.integrator for a in self.arches], **args
+            )
+                
     def mg_integrate_1d(self, monitor=None, **kwargs):
         with self.sphere_lock:
+            lst_mask = [a.mask for a in self.arches]
             if monitor is None:
                 try:
-                    self.mg_1d_result = self.multiGeometry.integrate1d(
-                        [a.map_norm for a in self.arches], **kwargs
+                    result = self.multi_geo.integrate1d(
+                        [a.map_norm for a in self.arches], lst_mask=lst_mask, 
+                        **kwargs
                     )
-                except e as exception:
+                except Exception as e:
                     print(e)
-                    self.mg_1d_result = self.multiGeometry.integrate1d(
-                        [a.map_raw for a in self.arches], **kwargs
+                    result = self.multi_geo.integrate1d(
+                        [a.map_raw for a in self.arches], lst_mask=lst_mask,
+                        **kwargs
                     )
             else:
-                self.mg_1d_result = self.multiGeometry.integrate1d(
-                    [a.map_raw for a in self.arches], 
+                result = self.multi_geo.integrate1d(
+                    [a.map_raw for a in self.arches], lst_mask=lst_mask,
                     normalization_factor=list(self.scan_data[monitor]), **kwargs
                 )
+            
+            self.mg_1d_intensity = result.intensity
+
+            self.mg_1d_2theta, self.mg_1d_q = parse_unit(
+                result, self.multi_geo.wavelength)
+        return result
+
 
     def save_to_h5(self, file):
         with self.file_lock:
