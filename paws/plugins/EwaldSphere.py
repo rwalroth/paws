@@ -3,6 +3,7 @@ import h5py
 from threading import Condition
 from pyFAI.multi_geometry import MultiGeometry
 import copy
+import time
 import numpy as np
 
 from .PawsPlugin import PawsPlugin
@@ -39,12 +40,11 @@ class EwaldSphere(PawsPlugin):
         self.bai_2d_q = 0
 
     def add_arch(self, arch=None, calculate=True, update=True, get_sd=True, 
-                 **kwargs):
+                 set_mg=True, **kwargs):
+        start = time.time()
         with self.sphere_lock:
             if arch is None:
                 arch = EwaldArch(**kwargs)
-            else:
-                arch = arch.copy()
             if calculate:
                 arch.integrate_1d(**self.bai_1d_args)
                 #arch.integrate_2d(**self.bai_2d_args)
@@ -63,13 +63,16 @@ class EwaldSphere(PawsPlugin):
                     )
             self.scan_data.sort_index(inplace=True)
             if update:
+                self._update_bai_1d(arch)
+                #self._update_bai_2d(arch)
+            if set_mg:
                 self.multi_geo = MultiGeometry(
                     [a.integrator for a in self.arches], **self.mg_args
                 )
-                self._update_bai_1d(arch)
-                #self._update_bai_2d(arch)
 
-    def by_arch_integrate_1d(self, args=self.bai_1d_args):
+    def by_arch_integrate_1d(self, args=None):
+        if args is None:
+            args = self.bai_1d_args
         with self.sphere_lock:
             self.bai_1d_raw = 0
             self.bai_1d_pcount = 0

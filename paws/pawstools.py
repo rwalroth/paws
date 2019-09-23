@@ -351,11 +351,19 @@ def dict_to_h5(data, grp, **kwargs):
         data_to_h5(sub_data, grp, s_key, **kwargs)
 
 
-def attributes_to_h5(obj, lst_attr, grp, **kwargs):
+def attributes_to_h5(obj, grp, lst_attr=None, priv=False, dpriv=False,
+                     **kwargs):
     """Function which takes a list of class attributes and stores them
     in a provided h5py group. See data_to_h5 for how datatypes are
     handled.
     """
+    if lst_attr is None:
+        if dpriv:
+            lst_attr = list(obj.__dict__.keys())
+        elif priv:
+            lst_attr = [x for x in obj.__dict__.keys() if '__' not in x]
+        else:
+            lst_attr = [x for x in obj.__dict__.keys() if '_' not in x]
     for attr in lst_attr:
         data = getattr(obj, attr)
         data_to_h5(data, grp, attr, **kwargs)
@@ -442,10 +450,13 @@ def h5_to_dict(grp, **kwargs):
     return data
 
 
-def h5_to_attributes(obj, lst_attr, grp, **kwargs):
+def h5_to_attributes(obj, grp, lst_attr=None, **kwargs):
+    if lst_attr is None:
+        lst_attr = grp.keys()
     for attr in lst_attr:
-        data = h5_to_data(grp[attr], **kwargs)
-        setattr(obj, attr, data)
+        if attr in obj.__dict__.keys():
+            data = h5_to_data(grp[attr], **kwargs)
+            setattr(obj, attr, data)
 
 
 def div0( a, b ):
