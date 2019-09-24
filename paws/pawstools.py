@@ -467,5 +467,21 @@ def div0( a, b ):
     return c
 
 
-
-
+def soft_list_eval(data):
+    """Tries to create list of evaluated items in data. If exception
+    is thrown by eval, it just adds the element as is to the list.
+    
+    args:
+        data: list or array-like, input data to be evaluated
+    
+    returns:
+        out: list of values in data with eval applied if possible
+    """
+    out = []
+    for x in data:
+        try:
+            out.append(eval(x))
+        except:
+            out.append(x)
+    
+    return out

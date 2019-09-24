@@ -10,10 +10,9 @@ import pandas as pd
 from copy import deepcopy
 
 from ..Operation import Operation
+from ...pawstools import soft_list_eval
 
 
-
-date_format = '%a %b %d %H:%M:%S %Y'
 
 inputs = OrderedDict(
         spec_file_path=None,
@@ -44,7 +43,8 @@ outputs = OrderedDict(
 class LoadSpecFile(Operation):
     """Operation for loading in data from a spec file.
     """
-    
+    date_format = '%a %b %d %H:%M:%S %Y'
+
     def __init__(self):
         super(LoadSpecFile, self).__init__(inputs, outputs)
     
@@ -195,24 +195,4 @@ class LoadSpecFile(Operation):
                 self.outputs['scans'][scan_num].loc[idx] = vals
             except IndexError:
                 self.outputs['scans'][scan_num].loc[0] = vals
-                        
-
-def soft_list_eval(data):
-    """Tries to create list of evaluated items in data. If exception
-    is thrown by eval, it just adds the element as is to the list.
-    
-    args:
-        data: list or array-like, input data to be evaluated
-    
-    returns:
-        out: list of values in data with eval applied if possible
-    """
-    out = []
-    for x in data:
-        try:
-            out.append(eval(x))
-        except:
-            out.append(x)
-    
-    return out
     

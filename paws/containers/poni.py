@@ -53,8 +53,9 @@ class PONI(object):
         out = cls()
         for key in input:
             if key == 'Detector':
-                out.detector = detector_factory(input['Detector'], 
-                                                config=input['Detector_config'])
+                out.detector = detector_factory(
+                    input['Detector'], config=input['Detector_config']
+                )
             else:
                 try:
                     setattr(out, cls._poni_keys[key], input[key])

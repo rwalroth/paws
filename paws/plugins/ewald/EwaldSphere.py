@@ -2,9 +2,9 @@ from threading import Condition
 import pandas as pd
 from pyFAI.multi_geometry import MultiGeometry
 
-from .PawsPlugin import PawsPlugin
+from ..PawsPlugin import PawsPlugin
 from .EwaldArch import EwaldArch, parse_unit
-from ..containers import int_1d_data, int_2d_data
+from ...containers import int_1d_data, int_2d_data
 from .. import pawstools
 
 
