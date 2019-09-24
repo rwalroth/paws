@@ -34,8 +34,12 @@ outputs = OrderedDict(
                 number=0,
                 text=''
                 ),
-        current_scan = None
-        )
+        current_scan={
+            'num': 0,
+            'data': None,
+            'meta': None
+        }
+    )
 
 class LoadSpecFile(Operation):
     """Operation for loading in data from a spec file.
@@ -58,7 +62,6 @@ class LoadSpecFile(Operation):
         # iterate lines and assign to either head or scan lists
         state = 'beginning'
         head = []
-        scan = []
 
         for lin_num, lin in enumerate(file):
             line = lin.split()
@@ -75,8 +78,7 @@ class LoadSpecFile(Operation):
                     head = []
 
                 elif state == 'scan':
-                    self._parse_scan(scan)
-                    scan = []
+                    continue
 
             else:
                 # first item defines what type of info it is
@@ -85,23 +87,13 @@ class LoadSpecFile(Operation):
                     state = 'head'
                 elif '#S' in key:
                     state = 'scan'
-                elif '#L' in key:
-                    self.outputs['current_scan'] = pd.DataFrame(columns=line[1:])
-                elif '#' not in key:
-                    try:
-                        cs_idx = self.outputs['current_scan'].index[-1] + 1
-                        self.outputs['current_scan'].loc[cs_idx] = soft_list_eval(line)
-                    except IndexError:
-                        cs_idx = 0
-                        self.outputs['current_scan'].loc[cs_idx] = soft_list_eval(line)
-                    except AttributeError:
-                        self.outputs['current_scan'] = pd.DataFrame(columns=line)
-                        self.outputs['current_scan'].loc[0] = soft_list_eval(line)
+                    scan_num = int(line[1])
 
                 if state == 'head':
                     head.append(line)
+
                 elif state == 'scan':
-                    scan.append(line)
+                    self._parse_scan(line, scan_num)
     
     
     def _parse_header(self, head):
@@ -153,57 +145,56 @@ class LoadSpecFile(Operation):
             self.outputs['header']['detectors'].update(detectors)
             self.outputs['header']['detectors_r'].update(detectors_r)
     
-    def _parse_scan(self, scan):
-        if scan == []:
+    def _parse_scan(self, line, scan_num):
+        if line == []:
             return None
 
+        flag = line[0]
+        if '#' in flag:
+            if 'S' in flag:
+                self.outputs['scans_meta'][scan_num] = \
+                    {'Goniometer': {}, 'Motors': {}}
+                self.outputs['scans_meta'][scan_num]['Command'] = \
+                    ' '.join(line[2:])
+                self.outputs['scans_meta'][scan_num]['Type'] = line[2]
+
+            elif 'D' in flag:
+                self.outputs['scans_meta'][scan_num]['Date'] = \
+                    ' '.join(line[1:])
+
+            elif 'T' in flag or 'M' in flag:
+                self.outputs['scans_meta'][scan_num]['Counter'] = \
+                    {'Amount': eval(line[1]), 'Type': line[2]}
+
+            elif 'G' in flag:
+                key = int(flag[2:])
+                self.outputs['scans_meta'][scan_num]['Goniometer'][key] = \
+                    soft_list_eval(line[1:])
+
+            elif 'Q' in flag:
+                self.outputs['scans_meta'][scan_num]['HKL'] = \
+                    soft_list_eval(line[1:])
+
+            elif 'P' in flag:
+                motor_num = int(flag[2:])
+                names = self.outputs['header']['motors'][motor_num]
+                positions = [eval(x) for x in line[1:]]
+                self.outputs['scans_meta'][scan_num]['Motors'].update(
+                    {name: position for name, position in 
+                    zip(names, positions)}
+                )
+            # TODO: decide what to do with N;
+
+            elif 'L' in flag:
+                self.outputs['scans'][scan_num] = pd.DataFrame(columns=line[1:])
+
         else:
-            meta = {'Goniometer': {},
-                    'Motors': {}}
-            row_list = []
-            scan_df = pd.DataFrame()
-            for line in scan:
-                flag = line[0]
-                if '#' in flag:
-                    if 'S' in flag:
-                        scan_num = int(line[1])
-                        meta['Command'] = ' '.join(line[2:])
-                        meta['Type'] = line[2]
-
-                    elif 'D' in flag:
-                        meta['Date'] = ' '.join(line[1:])
-
-                    elif 'T' in flag or 'M' in flag:
-                        meta['Counter'] = {'Amount': eval(line[1]),
-                                           'Type': line[2]}
-
-                    elif 'G' in flag:
-                        key = int(flag[2:])
-                        meta['Goniometer'][key] = soft_list_eval(line[1:])
-
-                    elif 'Q' in flag:
-                        meta['HKL'] = soft_list_eval(line[1:])
-
-                    elif 'P' in flag:
-                        motor_num = int(flag[2:])
-                        names = self.outputs['header']['motors'][motor_num]
-                        positions = [eval(x) for x in line[1:]]
-                        meta['Motors'].update({name: position 
-                            for name, position in zip(names, positions)})
-                    # TODO: decide what to do with N;
-
-                    elif 'L' in flag:
-                        columns = line[1:]
-
-                else:
-                    vals = soft_list_eval(line)
-                    row_list.append({col:val for col, val in zip(
-                                     columns, vals)})
-
-            scan_df = pd.DataFrame(row_list, columns=columns)
-            
-            self.outputs['scans'][scan_num] = scan_df.copy()
-            self.outputs['scans_meta'][scan_num] = deepcopy(meta)
+            vals = soft_list_eval(line)
+            try:
+                idx = self.outputs['scans'][scan_num].index[-1] + 1
+                self.outputs['scans'][scan_num].loc[idx] = vals
+            except IndexError:
+                self.outputs['scans'][scan_num].loc[0] = vals
                         
 
 def soft_list_eval(data):

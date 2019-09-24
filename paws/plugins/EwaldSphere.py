@@ -42,7 +42,7 @@ class EwaldSphere(PawsPlugin):
         load_from_h5: loads data from hdf5 file
     """
     def __init__(self, name='scan0', arches=[], data_file='scan0',
-                 scan_data=pd.DataFrame(), mg_args={'wavelength':1e-10},
+                 scan_data=pd.DataFrame(), mg_args={'wavelength': 1e-10},
                  bai_1d_args={}, bai_2d_args={}):
         super(EwaldSphere, self).__init__()
         self.name = name
@@ -171,7 +171,8 @@ class EwaldSphere(PawsPlugin):
             else:
                 result = self.multi_geo.integrate1d(
                     [a.map_raw for a in self.arches], lst_mask=lst_mask,
-                    normalization_factor=list(self.scan_data[monitor]), **kwargs
+                    normalization_factor=list(self.scan_data[monitor]),
+                    **kwargs
                 )
 
             self.mgi_1d_I = result.intensity
@@ -179,7 +180,6 @@ class EwaldSphere(PawsPlugin):
             self.mgi_1d_2theta, self.mgi_1d_q = parse_unit(
                 result, self.multi_geo.wavelength)
         return result
-
 
     def save_to_h5(self, file):
         """Saves data to hdf5 file.
