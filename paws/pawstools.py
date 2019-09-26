@@ -2,6 +2,7 @@ from datetime import datetime as dt
 import importlib
 import os
 import re
+import time
 import string 
 from collections import OrderedDict
 import h5py
@@ -303,12 +304,16 @@ def data_to_h5(data, grp, key, encoder='yaml'):
     elif type(data) == pd.core.series.Series:
         new_grp = grp.create_group(key)
         new_grp.attrs['encoded'] = 'Series'
-        dict_to_h5(data.to_dict(), new_grp)
+        new_grp.create_dataset('data', np.array(data))
+        new_grp.create_dataset('index', np.array(data.index))
+        new_grp.create_dataset('name', np.string_(data.name))
     
     elif type(data) == pd.core.frame.DataFrame:
         new_grp = grp.create_group(key)
         new_grp.attrs['encoded'] = 'DataFrame'
-        dict_to_h5(data.to_dict(), new_grp)
+        new_grp.create_dataset('index', np.array(data.index))
+        new_grp.create_dataset('columns', np.array(data.columns))
+        new_grp.create_dataset('data', np.array(data))
     
     else:
         try:
@@ -372,7 +377,7 @@ def attributes_to_h5(obj, grp, lst_attr=None, priv=False, dpriv=False,
 
 
 def h5_to_data(grp, encoder=True, Loader=yaml.UnsafeLoader):
-    if encoder:
+    if encoder and 'encoded' in grp.attrs:
         encoded = grp.attrs['encoded']
         if encoded == 'None':
             data = None
@@ -384,12 +389,18 @@ def h5_to_data(grp, encoder=True, Loader=yaml.UnsafeLoader):
             data = grp[...].item().decode()
         
         elif encoded == 'Series':
-            data = h5_to_dict(grp, encoder=encoder, Loader=Loader)
-            data = pd.Series(data)
+            data = pd.Series(
+                data = grp['data'][()],
+                index = grp['index'][()],
+                name = grp['name'][...].item().decode()
+            )
         
         elif encoded == 'DataFrame':
-            data = h5_to_dict(grp, encoder=encoder, Loader=Loader)
-            data = pd.DataFrame(data)
+            data = pd.DataFrame(
+                data = grp['data'][()],
+                index = grp['index'][()],
+                columns = grp['columns'][()]
+            )
 
         elif encoded == 'data':
             if grp.shape == ():

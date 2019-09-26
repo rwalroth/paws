@@ -195,6 +195,8 @@ class EwaldSphere(PawsPlugin):
                     grp.create_group('arches')
                 else:
                     grp = file[self.name]
+                    if 'arches' not in grp:
+                        grp.create_group('arches')
             else:
                 grp = file.create_group(self.name)
                 grp.create_group('arches')
