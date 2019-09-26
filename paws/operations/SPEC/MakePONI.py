@@ -1,5 +1,6 @@
 from collections import OrderedDict
 from pyFAI.detectors import Detector
+import numpy as np
 
 from ...containers import PONI
 from ..Operation import Operation
@@ -36,7 +37,7 @@ outputs = {
 }
 
 class MakePONI(Operation):
-    def __init__(self, inputs, outputs):
+    def __init__(self):
         super(MakePONI, self).__init__(inputs, outputs)
         self.base = None
     
@@ -47,7 +48,7 @@ class MakePONI(Operation):
         
         for key, val in self.inputs['rotations'].items():
             if val is not None:
-                r = self.inputs['spec_dict'][val] + getattr(self.base, key)
+                r = np.radians(-self.inputs['spec_dict'][val]) + getattr(self.base, key)
                 setattr(poni, key, r)
         
         self.outputs.update(poni.to_dict())

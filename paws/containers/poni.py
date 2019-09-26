@@ -56,6 +56,12 @@ class PONI(object):
                 out.detector = detector_factory(
                     input['Detector'], config=input['Detector_config']
                 )
+            elif key == 'Wavelength':
+                if type(input[key]) == str:
+                    print(input[key])
+                    out.wavelength = eval(input[key])
+                else:
+                    out.wavelength = input[key]
             else:
                 try:
                     setattr(out, cls._poni_keys[key], input[key])

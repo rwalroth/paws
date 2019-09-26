@@ -5,7 +5,7 @@ from pyFAI.multi_geometry import MultiGeometry
 from ..PawsPlugin import PawsPlugin
 from .EwaldArch import EwaldArch, parse_unit
 from ...containers import int_1d_data, int_2d_data
-from .. import pawstools
+from ... import pawstools
 
 
 class EwaldSphere(PawsPlugin):
@@ -181,7 +181,7 @@ class EwaldSphere(PawsPlugin):
                 result, self.multi_geo.wavelength)
         return result
 
-    def save_to_h5(self, file):
+    def save_to_h5(self, file, arches=None, data_only=False, replace=False):
         """Saves data to hdf5 file.
 
         args:
@@ -189,22 +189,39 @@ class EwaldSphere(PawsPlugin):
         """
         with self.file_lock:
             if self.name in file:
-                del(file[self.name])
-            grp = file.create_group(self.name)
+                if replace:
+                    del(file[self.name])
+                    grp = file.create_group(self.name)
+                    grp.create_group('arches')
+                else:
+                    grp = file[self.name]
+            else:
+                grp = file.create_group(self.name)
+                grp.create_group('arches')
 
-            grp.create_group('arches')
-            for arch in self.arches:
-                arch.save_to_h5(grp['arches'])
-
-            lst_attr = [
-                "data_file", "scan_data", "mg_args", "bai_1d_args",
-                "bai_2d_args", "mgi_1d_2theta", "mgi_1d_q", "mgi_1d_I",
-                "mgi_2d_2theta", "mgi_2d_q", "mgi_2d_I"
-            ]
+            if arches is None:
+                for arch in self.arches:
+                    arch.save_to_h5(grp['arches'])
+            else:
+                for arch in self.arches:
+                    if arch.idx in arches:
+                        arch.save_to_h5(grp['arches'])
+            if data_only:
+                lst_attr = [
+                    "scan_data", "mgi_1d_q", "mgi_1d_I", "mgi_2d_2theta", 
+                    "mgi_2d_q", "mgi_2d_I"
+                ]
+            else:
+                lst_attr = [
+                    "data_file", "scan_data", "mg_args", "bai_1d_args",
+                    "bai_2d_args", "mgi_1d_2theta", "mgi_1d_q", "mgi_1d_I",
+                    "mgi_2d_2theta", "mgi_2d_q", "mgi_2d_I"
+                ]
             pawstools.attributes_to_h5(self, grp, lst_attr)
-            grp.create_group('bai_1d')
+            for key in ('bai_1d', 'bai_2d'):
+                if key not in grp:
+                    grp.create_group(key)
             pawstools.attributes_to_h5(self.bai_1d, grp['bai_1d'])
-            grp.create_group('bai_2d')
             pawstools.attributes_to_h5(self.bai_2d, grp['bai_2d'])
 
     def load_from_h5(self, file):

@@ -13,7 +13,7 @@ import numpy as np
 
 from ..PawsPlugin import PawsPlugin
 
-from .. import pawstools
+from ... import pawstools
 from ...containers import PONI, int_1d_data, int_2d_data
 
 
