@@ -15,7 +15,7 @@ class EwaldSphere(PawsPlugin):
 
     Attributes:
         name: str, name of the sphere
-        arches: list, list of arches
+        arches: Series, list of arches indexed by their idx value
         data_file: str, file to save data to
         scan_data: DataFrame, stores all scan metadata
         mg_args: arguments for MultiGeometry constructor
@@ -45,9 +45,13 @@ class EwaldSphere(PawsPlugin):
     def __init__(self, name='scan0', arches=[], data_file='scan0',
                  scan_data=pd.DataFrame(), mg_args={'wavelength': 1e-10},
                  bai_1d_args={}, bai_2d_args={}):
+        # TODO: add docstring for init
         super().__init__()
         self.name = name
-        self.arches = arches
+        if arches:
+            self.arches = pd.Series(arches, index=[a.idx for a in arches])
+        else:
+            self.arches = pd.Series()
         self.data_file = data_file
         self.scan_data = scan_data
         self.mg_args = mg_args
@@ -88,8 +92,8 @@ class EwaldSphere(PawsPlugin):
                 arch.integrate_1d(**self.bai_1d_args)
                 # arch.integrate_2d(**self.bai_2d_args)
             arch.file_lock = self.file_lock
-            self.arches.append(arch)
-            self.arches = sorted(self.arches, key=lambda a: a.idx)
+            self.arches = self.arches.append(pd.Series(arch, index=[arch.idx]))
+            self.arches.sort_index(inplace=True)
             if arch.scan_info and get_sd:
                 ser = pd.Series(arch.scan_info, dtype='float64')
                 if list(self.scan_data.columns):
@@ -101,8 +105,6 @@ class EwaldSphere(PawsPlugin):
                     self.scan_data = pd.DataFrame(
                         arch.scan_info, index=[arch.idx], dtype='float64'
                     )
-                    print('dtype')
-                    print(self.scan_data.iloc[0].dtype)
             self.scan_data.sort_index(inplace=True)
             if update:
                 self._update_bai_1d(arch)
@@ -209,9 +211,10 @@ class EwaldSphere(PawsPlugin):
                 for arch in self.arches:
                     arch.save_to_h5(grp['arches'])
             else:
-                for arch in self.arches:
-                    if arch.idx in arches:
-                        arch.save_to_h5(grp['arches'])
+                for arch in self.arches[
+                        list(set(self.arches.index).intersection(
+                        set(arches)))]:
+                    arch.save_to_h5(grp['arches'])
             if data_only:
                 lst_attr = [
                     "scan_data", "mgi_1d_q", "mgi_1d_I", "mgi_2d_2theta", 
@@ -242,7 +245,7 @@ class EwaldSphere(PawsPlugin):
                     print("No data can be found")
                 grp = file[self.name]
 
-                self.arches = []
+                self.arches = pd.Series()
                 for key in grp['arches'].keys():
                     arch = EwaldArch(idx=int(key))
                     arch.load_from_h5(grp['arches'])
