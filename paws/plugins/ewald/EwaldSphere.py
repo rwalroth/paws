@@ -1,4 +1,5 @@
 from threading import Condition
+import time
 import pandas as pd
 from pyFAI.multi_geometry import MultiGeometry
 
@@ -44,7 +45,7 @@ class EwaldSphere(PawsPlugin):
     def __init__(self, name='scan0', arches=[], data_file='scan0',
                  scan_data=pd.DataFrame(), mg_args={'wavelength': 1e-10},
                  bai_1d_args={}, bai_2d_args={}):
-        super(EwaldSphere, self).__init__()
+        super().__init__()
         self.name = name
         self.arches = arches
         self.data_file = data_file
@@ -90,15 +91,18 @@ class EwaldSphere(PawsPlugin):
             self.arches.append(arch)
             self.arches = sorted(self.arches, key=lambda a: a.idx)
             if arch.scan_info and get_sd:
+                ser = pd.Series(arch.scan_info, dtype='float64')
                 if list(self.scan_data.columns):
                     try:
-                        self.scan_data.loc[arch.idx] = arch.scan_info
+                        self.scan_data.loc[arch.idx] = ser
                     except ValueError:
                         print('Mismatched columns')
                 else:
                     self.scan_data = pd.DataFrame(
-                        arch.scan_info, index=[arch.idx]
+                        arch.scan_info, index=[arch.idx], dtype='float64'
                     )
+                    print('dtype')
+                    print(self.scan_data.iloc[0].dtype)
             self.scan_data.sort_index(inplace=True)
             if update:
                 self._update_bai_1d(arch)
@@ -244,7 +248,7 @@ class EwaldSphere(PawsPlugin):
                     arch.load_from_h5(grp['arches'])
                     self.add_arch(
                         arch.copy(), calculate=False, update=False,
-                        get_sd=False
+                        get_sd=False, set_mg=False
                     )
 
                 lst_attr = [

@@ -58,7 +58,6 @@ class PONI(object):
                 )
             elif key == 'Wavelength':
                 if type(input[key]) == str:
-                    print(input[key])
                     out.wavelength = eval(input[key])
                 else:
                     out.wavelength = input[key]
@@ -71,7 +70,7 @@ class PONI(object):
     
     @classmethod
     def from_yaml(cls, stream):
-        input = yaml.load(stream)
+        input = yaml.safe_load(stream)
         return cls.from_yamdict(input)
     
     @classmethod

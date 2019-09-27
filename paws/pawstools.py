@@ -304,16 +304,16 @@ def data_to_h5(data, grp, key, encoder='yaml'):
     elif type(data) == pd.core.series.Series:
         new_grp = grp.create_group(key)
         new_grp.attrs['encoded'] = 'Series'
-        new_grp.create_dataset('data', np.array(data))
-        new_grp.create_dataset('index', np.array(data.index))
-        new_grp.create_dataset('name', np.string_(data.name))
+        new_grp.create_dataset('data', data=np.array(data))
+        index_to_h5(data.index, 'index', new_grp)
+        new_grp.create_dataset('name', data=np.string_(data.name))
     
     elif type(data) == pd.core.frame.DataFrame:
         new_grp = grp.create_group(key)
         new_grp.attrs['encoded'] = 'DataFrame'
-        new_grp.create_dataset('index', np.array(data.index))
-        new_grp.create_dataset('columns', np.array(data.columns))
-        new_grp.create_dataset('data', np.array(data))
+        index_to_h5(data.index, 'index', new_grp)
+        index_to_h5(data.columns, 'columns', new_grp)
+        new_grp.create_dataset('data', data=np.array(data))
     
     else:
         try:
@@ -337,6 +337,15 @@ def data_to_h5(data, grp, key, encoder='yaml'):
                 except Exception as e:
                     print(e)
                     print(f"Unable to dump {key}")
+
+
+def index_to_h5(index, key, grp):
+    if index.dtype == 'object':
+        grp.create_dataset(
+            key, data=np.array([np.string_(str(x)) for x in index])
+        )
+    else:
+        grp.create_dataset(key, data=np.array(index))
 
 
 def dict_to_h5(data, grp, **kwargs):
@@ -391,15 +400,15 @@ def h5_to_data(grp, encoder=True, Loader=yaml.UnsafeLoader):
         elif encoded == 'Series':
             data = pd.Series(
                 data = grp['data'][()],
-                index = grp['index'][()],
+                index = h5_to_index(grp['index']),
                 name = grp['name'][...].item().decode()
             )
         
         elif encoded == 'DataFrame':
             data = pd.DataFrame(
                 data = grp['data'][()],
-                index = grp['index'][()],
-                columns = grp['columns'][()]
+                index = h5_to_index(grp['index']),
+                columns = h5_to_index(grp['columns']),
             )
 
         elif encoded == 'data':
@@ -439,6 +448,13 @@ def h5_to_data(grp, encoder=True, Loader=yaml.UnsafeLoader):
             data = grp[()]
     
     return data
+
+
+def h5_to_index(grp):
+    if np.issubdtype(grp.dtype, np.number):
+        return grp[()]
+    else:
+        return soft_list_eval(grp)
 
 
 def h5_to_dict(grp, **kwargs):
@@ -493,8 +509,11 @@ def soft_list_eval(data):
     out = []
     for x in data:
         try:
-            out.append(eval(x))
+            out.append(eval(x, {}))
         except:
-            out.append(x)
+            try:
+                out.append(x.decode())
+            except (AttributeError, SyntaxError):
+                out.append(x)
     
     return out
