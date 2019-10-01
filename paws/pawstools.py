@@ -517,3 +517,14 @@ def soft_list_eval(data):
                 out.append(x)
     
     return out
+
+
+def catch_h5py_file(filename, *args, **kwargs):
+    while True:
+        try:
+            hdf5_file = h5py.File(filename, *args, **kwargs)
+            break  # Success!
+        except OSError:
+            pass
+    return hdf5_file
+

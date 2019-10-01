@@ -32,13 +32,13 @@ def parse_unit(result, wavelength):
     if wavelength is None:
         return result.radial, None
 
-    if result.unit == units.TTH_DEG:
+    if result.unit == units.TTH_DEG or str(result.unit) == '2th_deg':
         int_1d_2theta = result.radial
         int_1d_q = (
             (4 * np.pi / wavelength*1e10) *
             np.sin(np.radians(int_1d_2theta / 2))
         )
-    elif result.unit == units.Q_A:
+    elif result.unit == units.Q_A or str(result.unit) == 'q_A^-1':
         int_1d_q = result.radial
         int_1d_2theta = (
             2*np.degrees(
