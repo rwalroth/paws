@@ -35,7 +35,7 @@ def parse_unit(result, wavelength):
     if result.unit == units.TTH_DEG or str(result.unit) == '2th_deg':
         int_1d_2theta = result.radial
         int_1d_q = (
-            (4 * np.pi / wavelength*1e10) *
+            (4 * np.pi / (wavelength*1e10)) *
             np.sin(np.radians(int_1d_2theta / 2))
         )
     elif result.unit == units.Q_A or str(result.unit) == 'q_A^-1':
@@ -44,8 +44,7 @@ def parse_unit(result, wavelength):
             2*np.degrees(
                 np.arcsin(
                     int_1d_q *
-                    wavelength *
-                    1e10 /
+                    (wavelength * 1e10) /
                     (4 * np.pi)
                 )
             )
@@ -161,11 +160,35 @@ class EwaldArch(PawsPlugin):
             )
         return result
 
-    def integrate_2d(self):
+    def integrate_2d(self, npt_rad=256, npt_azim=256, monitor=None,
+                     radial_range = [0,180], azimuth_range=[-180, 180], unit=units.TTH_DEG, **kwargs):
         """Not implemented.
         """
         with self.arch_lock:
-            pass
+            if monitor is not None:
+                self.map_norm = self.map_raw/self.scan_info[monitor]
+            else:
+                self.map_norm = self.map_raw
+            if self.mask is None:
+                self.mask = np.where(self.map_raw < 0, 1, 0)
+
+            result = self.integrator.integrate2d(
+                self.map_norm, npt_rad, npt_azim, unit=unit,
+                mask=self.mask, radial_range=radial_range, 
+                azimuth_range=azimuth_range, **kwargs
+            )
+
+            self.int_2d.ttheta, self.int_2d.q = parse_unit(
+                result, self.poni.wavelength)
+
+            self.int_2d.pcount = result._count
+            self.int_2d.raw = result._sum_signal
+            self.int_2d.norm = pawstools.div0(
+                self.int_2d.raw, self.int_2d.pcount
+            )
+            self.int_2d.chi = result.azimuthal
+        return result
+            
 
     def set_integrator(self, **args):
         """Sets AzimuthalIntegrator with new arguments and instances poni
