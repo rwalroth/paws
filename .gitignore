@@ -25,5 +25,8 @@ src/*
 *~
 paws.pyproj
 paws.sln
-.vs/paws/v16/.suo
 .editorconfig
+.vs
+.vs/*
+.vscode
+.vscode/*
