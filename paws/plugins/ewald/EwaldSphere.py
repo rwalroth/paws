@@ -90,7 +90,7 @@ class EwaldSphere(PawsPlugin):
                 arch = EwaldArch(**kwargs)
             if calculate:
                 arch.integrate_1d(**self.bai_1d_args)
-                # arch.integrate_2d(**self.bai_2d_args)
+                arch.integrate_2d(**self.bai_2d_args)
             arch.file_lock = self.file_lock
             self.arches = self.arches.append(pd.Series(arch, index=[arch.idx]))
             self.arches.sort_index(inplace=True)
@@ -108,7 +108,7 @@ class EwaldSphere(PawsPlugin):
             self.scan_data.sort_index(inplace=True)
             if update:
                 self._update_bai_1d(arch)
-                # self._update_bai_2d(arch)
+                self._update_bai_2d(arch)
             if set_mg:
                 self.multi_geo = MultiGeometry(
                     [a.integrator for a in self.arches], **self.mg_args
@@ -129,6 +129,22 @@ class EwaldSphere(PawsPlugin):
             for arch in self.arches:
                 arch.integrate_1d(**args)
                 self._update_bai_1d(arch)
+    
+    def by_arch_integrate_2d(self, **args):
+        """Integrates all arches individually, then sums the results for
+        the overall integration result.
+
+        args: see EwaldArch.integrate_2d
+        """
+        if not args:
+            args = self.bai_2d_args
+        else:
+            self.bai_2d_args = args.copy()
+        with self.sphere_lock:
+            self.bai_2d = int_2d_data()
+            for arch in self.arches:
+                arch.integrate_2d(**args)
+                self._update_bai_2d(arch)
 
     def _update_bai_1d(self, arch):
         """helper function to update overall bai variables.
@@ -138,6 +154,16 @@ class EwaldSphere(PawsPlugin):
         self.bai_1d.norm = pawstools.div0(self.bai_1d.raw, self.bai_1d.pcount)
         self.bai_1d.ttheta = arch.int_1d.ttheta
         self.bai_1d.q = arch.int_1d.q
+    
+    def _update_bai_2d(self, arch):
+        """helper function to update overall bai variables.
+        """
+        self.bai_2d.raw += arch.int_2d.raw
+        self.bai_2d.pcount += arch.int_2d.pcount
+        self.bai_2d.norm = pawstools.div0(self.bai_2d.raw, self.bai_2d.pcount)
+        self.bai_2d.ttheta = arch.int_2d.ttheta
+        self.bai_2d.q = arch.int_2d.q
+        self.bai_2d.chi = arch.int_2d.chi
 
     def set_multi_geo(self, **args):
         """Sets the MultiGeometry instance stored in the arch.

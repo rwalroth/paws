@@ -161,7 +161,8 @@ class EwaldArch(PawsPlugin):
         return result
 
     def integrate_2d(self, npt_rad=256, npt_azim=256, monitor=None,
-                     radial_range = [0,180], azimuth_range=[-180, 180], unit=units.TTH_DEG, **kwargs):
+                     radial_range = [0,180], azimuth_range=[-180, 180], 
+                     unit=units.TTH_DEG, **kwargs):
         """Not implemented.
         """
         with self.arch_lock:
