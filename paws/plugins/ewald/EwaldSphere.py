@@ -59,13 +59,8 @@ class EwaldSphere(PawsPlugin):
         self.multi_geo = MultiGeometry([a.integrator for a in arches], **mg_args)
         self.bai_1d_args = bai_1d_args
         self.bai_2d_args = bai_2d_args
-        self.mgi_1d_I = 0
-        self.mgi_1d_2theta = 0
-        self.mgi_1d_q = 0
-        self.mgi_2d_I = 0
-        self.mgi_2d_2theta = 0
-        self.mgi_2d_q = 0
-        self.mgi_2d_chi = 0
+        self.mgi_1d = int_1d_data()
+        self.mgi_2d = int_2d_data()
         self.file_lock = Condition()
         self.sphere_lock = Condition()
         self.bai_1d = int_1d_data()
@@ -151,27 +146,29 @@ class EwaldSphere(PawsPlugin):
     def _update_bai_1d(self, arch):
         """helper function to update overall bai variables.
         """
-        self.bai_1d.raw += arch.int_1d.raw
-        self.bai_1d.pcount += arch.int_1d.pcount
-        self.bai_1d.norm = pawstools.div0(self.bai_1d.raw, self.bai_1d.pcount)
-        self.bai_1d.ttheta = arch.int_1d.ttheta
-        self.bai_1d.q = arch.int_1d.q
+        with self.sphere_lock:
+            self.bai_1d.raw += arch.int_1d.raw
+            self.bai_1d.pcount += arch.int_1d.pcount
+            self.bai_1d.norm = pawstools.div0(self.bai_1d.raw, self.bai_1d.pcount)
+            self.bai_1d.ttheta = arch.int_1d.ttheta
+            self.bai_1d.q = arch.int_1d.q
     
     def _update_bai_2d(self, arch):
         """helper function to update overall bai variables.
         """
-        try:
-            assert self.bai_2d.raw.shape == arch.int_2d.raw.shape
-        except (AssertionError, AttributeError):
-            self.bai_2d.raw = np.zeros(arch.int_2d.raw.shape)
-            self.bai_2d.pcount = np.zeros(arch.int_2d.pcount.shape)
-            self.bai_2d.norm = np.zeros(arch.int_2d.norm.shape)
-        self.bai_2d.raw += arch.int_2d.raw
-        self.bai_2d.pcount += arch.int_2d.pcount
-        self.bai_2d.norm = pawstools.div0(self.bai_2d.raw, self.bai_2d.pcount)
-        self.bai_2d.ttheta = arch.int_2d.ttheta
-        self.bai_2d.q = arch.int_2d.q
-        self.bai_2d.chi = arch.int_2d.chi
+        with self.sphere_lock:
+            try:
+                assert self.bai_2d.raw.shape == arch.int_2d.raw.shape
+            except (AssertionError, AttributeError):
+                self.bai_2d.raw = np.zeros(arch.int_2d.raw.shape)
+                self.bai_2d.pcount = np.zeros(arch.int_2d.pcount.shape)
+                self.bai_2d.norm = np.zeros(arch.int_2d.norm.shape)
+            self.bai_2d.raw += arch.int_2d.raw
+            self.bai_2d.pcount += arch.int_2d.pcount
+            self.bai_2d.norm = pawstools.div0(self.bai_2d.raw, self.bai_2d.pcount)
+            self.bai_2d.ttheta = arch.int_2d.ttheta
+            self.bai_2d.q = arch.int_2d.q
+            self.bai_2d.chi = arch.int_2d.chi
 
     def set_multi_geo(self, **args):
         """Sets the MultiGeometry instance stored in the arch.
@@ -215,10 +212,7 @@ class EwaldSphere(PawsPlugin):
                     **kwargs
                 )
 
-            self.mgi_1d_I = result.intensity
-
-            self.mgi_1d_2theta, self.mgi_1d_q = parse_unit(
-                result, self.multi_geo.wavelength)
+            self.mgi_1d.from_result(result, self.multi_geo.wavelength)
         return result
     
     def multigeometry_integrate_2d(self, monitor=None, **kwargs):
@@ -252,12 +246,7 @@ class EwaldSphere(PawsPlugin):
                     **kwargs
                 )
 
-            self.mgi_2d_I = result.intensity
-
-            self.mgi_2d_2theta, self.mgi_2d_q = parse_unit(
-                result, self.multi_geo.wavelength)
-            
-            self.mgi_2d_chi = result.azimuthal
+            self.mgi_2d.from_result(result, self.multi_geo.wavelength)
         return result
 
     def save_to_h5(self, file, arches=None, data_only=False, replace=False):

@@ -1,6 +1,10 @@
 from collections import namedtuple
 from dataclasses import dataclass, field
+
 import numpy as np
+from pyFAI import units
+
+from .. import pawstools
 
 class NoZeroArray():
     def __get__(self, instance, owner):
@@ -34,12 +38,56 @@ class int_1d_data:
     ttheta: np.ndarray = 0
     q: np.ndarray = 0
 
+    def from_result(self, result, wavelength):
+        self.ttheta, self.q = self.parse_unit(
+            result, wavelength)
+
+        self.pcount = result._count
+        self.raw = result._sum_signal
+        self.norm = pawstools.div0(
+            self.raw, self.pcount
+        )
+    
+    def parse_unit(self, result, wavelength):
+        """Helper function to take integrator result and return a two theta
+        and q array regardless of the unit used for integration.
+
+        args:
+            result: result from 1dintegrator
+            wavelength: wavelength for conversion in Angstroms
+
+        returns:
+            int_1d_2theta: two theta array
+            int_1d_q: q array
+        """
+        if wavelength is None:
+            return result.radial, None
+
+        if result.unit == units.TTH_DEG or str(result.unit) == '2th_deg':
+            int_1d_2theta = result.radial
+            int_1d_q = (
+                (4 * np.pi / (wavelength*1e10)) *
+                np.sin(np.radians(int_1d_2theta / 2))
+            )
+        elif result.unit == units.Q_A or str(result.unit) == 'q_A^-1':
+            int_1d_q = result.radial
+            int_1d_2theta = (
+                2*np.degrees(
+                    np.arcsin(
+                        int_1d_q *
+                        (wavelength * 1e10) /
+                        (4 * np.pi)
+                    )
+                )
+            )
+        # TODO: implement other unit options for unit
+        return int_1d_2theta, int_1d_q
+
 @dataclass
-class int_2d_data:
-    raw: np.ndarray = 0
-    pcount: np.ndarray = 0
-    norm: np.ndarray = 0
-    ttheta: np.ndarray = 0
-    q: np.ndarray = 0
+class int_2d_data(int_1d_data):
     chi: np.ndarray = 0
+
+    def from_result(self, result, wavelength):
+        super(int_2d_data, self).from_result(result, wavelength)
+        self.chi = result.azimuthal
         

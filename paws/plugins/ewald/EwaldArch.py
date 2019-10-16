@@ -151,14 +151,7 @@ class EwaldArch(PawsPlugin):
                 mask=self.mask, **kwargs
             )
 
-            self.int_1d.ttheta, self.int_1d.q = parse_unit(
-                result, self.poni.wavelength)
-
-            self.int_1d.pcount = result._count
-            self.int_1d.raw = result._sum_signal
-            self.int_1d.norm = pawstools.div0(
-                self.int_1d.raw, self.int_1d.pcount
-            )
+            self.int_1d.from_result(self, self.poni.wavelength)
         return result
 
     def integrate_2d(self, npt_rad=1000, npt_azim=1000, monitor=None,
@@ -203,15 +196,7 @@ class EwaldArch(PawsPlugin):
                 azimuth_range=azimuth_range, **kwargs
             )
 
-            self.int_2d.ttheta, self.int_2d.q = parse_unit(
-                result, self.poni.wavelength)
-
-            self.int_2d.pcount = result._count
-            self.int_2d.raw = result._sum_signal
-            self.int_2d.norm = pawstools.div0(
-                self.int_2d.raw, self.int_2d.pcount
-            )
-            self.int_2d.chi = result.azimuthal
+            self.int_2d.from_result(result, self.poni.wavelength)
         return result
             
 
