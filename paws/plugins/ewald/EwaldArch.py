@@ -14,7 +14,7 @@ import numpy as np
 from ..PawsPlugin import PawsPlugin
 
 from ... import pawstools
-from ...containers import PONI, int_1d_data, int_2d_data
+from ...containers import PONI, int_1d_data, int_2d_data, NoZeroArray
 
 
 def parse_unit(result, wavelength):
@@ -131,7 +131,8 @@ class EwaldArch(PawsPlugin):
             numpoints: int, number of points in final array
             radial_range: tuple or list, lower and upper end of integration
             monitor: str, keyword for normalization counter in scan_info
-            unit: pyFAI unit for integration, units.TTH_DEG or units.Q_A
+            unit: pyFAI unit for integration, units.TTH_DEG, units.Q_A,
+                '2th_deg', or 'q_A^-1'
             kwargs: other keywords to be passed to integrate1d, see pyFAI docs.
 
         returns:
@@ -160,10 +161,27 @@ class EwaldArch(PawsPlugin):
             )
         return result
 
-    def integrate_2d(self, npt_rad=256, npt_azim=256, monitor=None,
-                     radial_range = [0,180], azimuth_range=[-180, 180], 
+    def integrate_2d(self, npt_rad=1000, npt_azim=1000, monitor=None,
+                     radial_range=None, azimuth_range=None, 
                      unit=units.TTH_DEG, **kwargs):
-        """Not implemented.
+        """Wrapper for integrate2d method of AzimuthalIntegrator from pyFAI.
+        Sets 2d integration variables for object instance.
+
+        args:
+            npt_rad: int, number of points in radial dimension. If
+                None, will take number from the shape of map_norm
+            npt_azim: int, number of points in azimuthal dimension. If
+                None, will take number from the shape of map_norm
+            radial_range: tuple or list, lower and upper end of integration
+            azimuth_range: tuple or list, lower and upper end of integration
+                in azimuthal direction
+            monitor: str, keyword for normalization counter in scan_info
+            unit: pyFAI unit for integration, units.TTH_DEG, units.Q_A,
+                '2th_deg', or 'q_A^-1'
+            kwargs: other keywords to be passed to integrate2d, see pyFAI docs.
+
+        returns:
+            result: integrate1d result from pyFAI.
         """
         with self.arch_lock:
             if monitor is not None:
@@ -172,6 +190,12 @@ class EwaldArch(PawsPlugin):
                 self.map_norm = self.map_raw
             if self.mask is None:
                 self.mask = np.where(self.map_raw < 0, 1, 0)
+            
+            if npt_rad is None:
+                npt_rad = self.map_raw.shape[0]
+            
+            if npt_azim is None:
+                npt_azim = self.map_raw.shape[1]
 
             result = self.integrator.integrate2d(
                 self.map_norm, npt_rad, npt_azim, unit=unit,

@@ -1,10 +1,11 @@
 from threading import Condition
 import time
 import pandas as pd
+import numpy as np
 from pyFAI.multi_geometry import MultiGeometry
 
 from ..PawsPlugin import PawsPlugin
-from .EwaldArch import EwaldArch, parse_unit
+from .ewaldArch import EwaldArch, parse_unit
 from ...containers import int_1d_data, int_2d_data
 from ... import pawstools
 
@@ -158,6 +159,12 @@ class EwaldSphere(PawsPlugin):
     def _update_bai_2d(self, arch):
         """helper function to update overall bai variables.
         """
+        try:
+            assert self.bai_2d.raw.shape == arch.int_2d.raw.shape
+        except (AssertionError, AttributeError):
+            self.bai_2d.raw = np.zeros(arch.int_2d.raw.shape)
+            self.bai_2d.pcount = np.zeros(arch.int_2d.pcount.shape)
+            self.bai_2d.norm = np.zeros(arch.int_2d.norm.shape)
         self.bai_2d.raw += arch.int_2d.raw
         self.bai_2d.pcount += arch.int_2d.pcount
         self.bai_2d.norm = pawstools.div0(self.bai_2d.raw, self.bai_2d.pcount)
