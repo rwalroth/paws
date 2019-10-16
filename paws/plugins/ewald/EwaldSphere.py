@@ -65,6 +65,7 @@ class EwaldSphere(PawsPlugin):
         self.mgi_2d_I = 0
         self.mgi_2d_2theta = 0
         self.mgi_2d_q = 0
+        self.mgi_2d_chi = 0
         self.file_lock = Condition()
         self.sphere_lock = Condition()
         self.bai_1d = int_1d_data()
@@ -177,11 +178,11 @@ class EwaldSphere(PawsPlugin):
 
         args: see pyFAI.multiple_geometry.MultiGeometry
         """
+        self.mg_args.update(args)
         with self.sphere_lock:
             self.multi_geo = MultiGeometry(
-                [a.integrator for a in self.arches], **args
+                [a.integrator for a in self.arches], **self.mg_args
             )
-            self.mg_args = args
 
     def multigeometry_integrate_1d(self, monitor=None, **kwargs):
         """Wrapper for integrate1d method of MultiGeometry.
@@ -218,6 +219,45 @@ class EwaldSphere(PawsPlugin):
 
             self.mgi_1d_2theta, self.mgi_1d_q = parse_unit(
                 result, self.multi_geo.wavelength)
+        return result
+    
+    def multigeometry_integrate_2d(self, monitor=None, **kwargs):
+        """Wrapper for integrate1d method of MultiGeometry.
+
+        args:
+            monitor: channel with normalization value
+            kwargs: see MultiGeometry.integrate1d
+
+        returns:
+            result: result from MultiGeometry.integrate1d
+        """
+        with self.sphere_lock:
+            lst_mask = [a.mask for a in self.arches]
+            if monitor is None:
+                try:
+                    result = self.multi_geo.integrate2d(
+                        [a.map_norm for a in self.arches], lst_mask=lst_mask,
+                        **kwargs
+                    )
+                except Exception as e:
+                    print(e)
+                    result = self.multi_geo.integrate2d(
+                        [a.map_raw for a in self.arches], lst_mask=lst_mask,
+                        **kwargs
+                    )
+            else:
+                result = self.multi_geo.integrate2d(
+                    [a.map_raw for a in self.arches], lst_mask=lst_mask,
+                    normalization_factor=list(self.scan_data[monitor]),
+                    **kwargs
+                )
+
+            self.mgi_2d_I = result.intensity
+
+            self.mgi_2d_2theta, self.mgi_2d_q = parse_unit(
+                result, self.multi_geo.wavelength)
+            
+            self.mgi_2d_chi = result.azimuthal
         return result
 
     def save_to_h5(self, file, arches=None, data_only=False, replace=False):
