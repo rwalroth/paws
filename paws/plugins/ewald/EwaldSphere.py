@@ -279,21 +279,21 @@ class EwaldSphere(PawsPlugin):
                     arch.save_to_h5(grp['arches'])
             if data_only:
                 lst_attr = [
-                    "scan_data", "mgi_1d_q", "mgi_1d_I", "mgi_2d_2theta", 
-                    "mgi_2d_q", "mgi_2d_I"
+                    "scan_data"
                 ]
             else:
                 lst_attr = [
                     "data_file", "scan_data", "mg_args", "bai_1d_args",
-                    "bai_2d_args", "mgi_1d_2theta", "mgi_1d_q", "mgi_1d_I",
-                    "mgi_2d_2theta", "mgi_2d_q", "mgi_2d_I"
+                    "bai_2d_args"
                 ]
             pawstools.attributes_to_h5(self, grp, lst_attr)
-            for key in ('bai_1d', 'bai_2d'):
+            for key in ('bai_1d', 'bai_2d', 'mgi_1d', 'mgi_2d'):
                 if key not in grp:
                     grp.create_group(key)
             pawstools.attributes_to_h5(self.bai_1d, grp['bai_1d'])
             pawstools.attributes_to_h5(self.bai_2d, grp['bai_2d'])
+            pawstools.attributes_to_h5(self.mgi_1d, grp['mgi_1d'])
+            pawstools.attributes_to_h5(self.mgi_2d, grp['mgi_2d'])
 
     def load_from_h5(self, file):
         """Loads data from hdf5 file.
@@ -318,10 +318,11 @@ class EwaldSphere(PawsPlugin):
 
                 lst_attr = [
                     "data_file", "scan_data", "mg_args", "bai_1d_args",
-                    "bai_2d_args", "mgi_1d_2theta", "mgi_1d_q", "mgi_1d_I",
-                    "mgi_2d_2theta", "mgi_2d_q", "mgi_2d_I"
+                    "bai_2d_args"
                 ]
                 pawstools.h5_to_attributes(self, grp, lst_attr)
                 pawstools.h5_to_attributes(self.bai_1d, grp['bai_1d'])
                 pawstools.h5_to_attributes(self.bai_2d, grp['bai_2d'])
+                pawstools.h5_to_attributes(self.mgi_1d, grp['mgi_1d'])
+                pawstools.h5_to_attributes(self.mgi_2d, grp['mgi_2d'])
                 self.set_multi_geo(**self.mg_args)

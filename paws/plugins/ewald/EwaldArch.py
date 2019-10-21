@@ -151,7 +151,7 @@ class EwaldArch(PawsPlugin):
                 mask=self.mask, **kwargs
             )
 
-            self.int_1d.from_result(self, self.poni.wavelength)
+            self.int_1d.from_result(result, self.poni.wavelength)
         return result
 
     def integrate_2d(self, npt_rad=1000, npt_azim=1000, monitor=None,
