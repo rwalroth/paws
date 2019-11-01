@@ -321,6 +321,12 @@ class EwaldSphere(PawsPlugin):
                     "bai_2d_args"
                 ]
                 pawstools.h5_to_attributes(self, grp, lst_attr)
+                for arg in self.bai_1d_args:
+                    if 'range' in arg:
+                        self.bai_1d_args[arg] = list(self.bai_1d_args[arg])
+                for arg in self.bai_2d_args:
+                    if 'range' in arg:
+                        self.bai_2d_args[arg] = list(self.bai_2d_args[arg])
                 pawstools.h5_to_attributes(self.bai_1d, grp['bai_1d'])
                 pawstools.h5_to_attributes(self.bai_2d, grp['bai_2d'])
                 pawstools.h5_to_attributes(self.mgi_1d, grp['mgi_1d'])
