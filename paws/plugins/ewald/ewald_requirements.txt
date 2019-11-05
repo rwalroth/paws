@@ -1,0 +1,4 @@
+pyFAI
+pandas
+h5py
+pyyaml
