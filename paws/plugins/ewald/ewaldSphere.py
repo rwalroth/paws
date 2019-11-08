@@ -1,4 +1,4 @@
-from threading import Condition
+from threading import Condition, _PyRLock
 import time
 import pandas as pd
 import numpy as np
@@ -62,7 +62,7 @@ class EwaldSphere(PawsPlugin):
         self.mgi_1d = int_1d_data()
         self.mgi_2d = int_2d_data()
         self.file_lock = Condition()
-        self.sphere_lock = Condition()
+        self.sphere_lock = Condition(_PyRLock())
         self.bai_1d = int_1d_data()
         self.bai_2d = int_2d_data()
 
@@ -321,14 +321,19 @@ class EwaldSphere(PawsPlugin):
                     "bai_2d_args"
                 ]
                 pawstools.h5_to_attributes(self, grp, lst_attr)
-                for arg in self.bai_1d_args:
-                    if 'range' in arg:
-                        self.bai_1d_args[arg] = list(self.bai_1d_args[arg])
-                for arg in self.bai_2d_args:
-                    if 'range' in arg:
-                        self.bai_2d_args[arg] = list(self.bai_2d_args[arg])
+                self._set_args(self.bai_1d_args)
+                self._set_args(self.bai_2d_args)
+                self._set_args(self.mg_args)
                 pawstools.h5_to_attributes(self.bai_1d, grp['bai_1d'])
                 pawstools.h5_to_attributes(self.bai_2d, grp['bai_2d'])
                 pawstools.h5_to_attributes(self.mgi_1d, grp['mgi_1d'])
                 pawstools.h5_to_attributes(self.mgi_2d, grp['mgi_2d'])
                 self.set_multi_geo(**self.mg_args)
+
+    def _set_args(self, args):
+        """Ensures any range args are lists.
+        """
+        for arg in args:
+            if 'range' in arg:
+                if args[arg] is not None:
+                    args[arg] = list(args[arg])
