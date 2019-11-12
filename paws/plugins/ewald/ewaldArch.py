@@ -257,6 +257,7 @@ class EwaldArch(PawsPlugin):
             if str(self.idx) in file:
                 del(file[str(self.idx)])
             grp = file.create_group(str(self.idx))
+            grp.attrs['type'] = 'EwaldArch'
             lst_attr = [
                 "map_raw", "mask", "map_norm", "map_q", "xyz", "tcr", "qchi",
                 "scan_info", "ai_args"
@@ -283,27 +284,29 @@ class EwaldArch(PawsPlugin):
                 if str(self.idx) not in file:
                     print("No data can be found")
                 grp = file[str(self.idx)]
-                lst_attr = [
-                    "map_raw", "mask", "map_norm", "map_q", "xyz", "tcr",
-                    "qchi", "scan_info", "ai_args"
-                ]
-                pawstools.h5_to_attributes(self, grp, lst_attr)
-                pawstools.h5_to_attributes(self.int_1d, grp['int_1d'])
-                pawstools.h5_to_attributes(self.int_2d, grp['int_2d'])
-                self.poni = PONI.from_yamdict(
-                    pawstools.h5_to_dict(grp['poni'])
-                )
-                self.integrator = AzimuthalIntegrator(
-                    dist=self.poni.dist,
-                    poni1=self.poni.poni1,
-                    poni2=self.poni.poni2,
-                    rot1=self.poni.rot1,
-                    rot2=self.poni.rot2,
-                    rot3=self.poni.rot3,
-                    wavelength=self.poni.wavelength,
-                    detector=self.poni.detector,
-                    **self.ai_args
-                )
+                if 'type' in grp.attrs:
+                    if grp.attrs['type'] == 'EwaldArch':
+                        lst_attr = [
+                            "map_raw", "mask", "map_norm", "map_q", "xyz", "tcr",
+                            "qchi", "scan_info", "ai_args"
+                        ]
+                        pawstools.h5_to_attributes(self, grp, lst_attr)
+                        pawstools.h5_to_attributes(self.int_1d, grp['int_1d'])
+                        pawstools.h5_to_attributes(self.int_2d, grp['int_2d'])
+                        self.poni = PONI.from_yamdict(
+                            pawstools.h5_to_dict(grp['poni'])
+                        )
+                        self.integrator = AzimuthalIntegrator(
+                            dist=self.poni.dist,
+                            poni1=self.poni.poni1,
+                            poni2=self.poni.poni2,
+                            rot1=self.poni.rot1,
+                            rot2=self.poni.rot2,
+                            rot3=self.poni.rot3,
+                            wavelength=self.poni.wavelength,
+                            detector=self.poni.detector,
+                            **self.ai_args
+                        )
 
     def copy(self):
         arch_copy = EwaldArch(
