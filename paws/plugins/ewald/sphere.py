@@ -5,7 +5,7 @@ import numpy as np
 from pyFAI.multi_geometry import MultiGeometry
 
 from ..PawsPlugin import PawsPlugin
-from .ewaldArch import EwaldArch, parse_unit
+from .arch import EwaldArch, parse_unit
 from ...containers import int_1d_data, int_2d_data
 from ... import pawstools
 
