@@ -297,7 +297,7 @@ class EwaldSphere(PawsPlugin):
             pawstools.attributes_to_h5(self.mgi_1d, grp['mgi_1d'])
             pawstools.attributes_to_h5(self.mgi_2d, grp['mgi_2d'])
 
-    def load_from_h5(self, file):
+    def load_from_h5(self, file, data_only=False, arches=[], replace=True, set_mg=True):
         """Loads data from hdf5 file.
 
         args:
@@ -307,33 +307,46 @@ class EwaldSphere(PawsPlugin):
             with self.sphere_lock:
                 if self.name not in file:
                     print("No data can be found")
+                    return
                 grp = file[self.name]
 
                 if 'type' in grp.attrs:
                     if grp.attrs['type'] == 'EwaldSphere':
 
-                        self.arches = pd.Series()
+                        if replace:
+                            self.arches = pd.Series()
+                        
                         for key in grp['arches'].keys():
+                            if arches:
+                                if int(key) not in arches:
+                                    continue
                             arch = EwaldArch(idx=int(key))
                             arch.load_from_h5(grp['arches'])
                             self.add_arch(
                                 arch.copy(), calculate=False, update=False,
                                 get_sd=False, set_mg=False
                             )
-
-                        lst_attr = [
-                            "data_file", "scan_data", "mg_args", "bai_1d_args",
-                            "bai_2d_args"
-                        ]
-                        pawstools.h5_to_attributes(self, grp, lst_attr)
-                        self._set_args(self.bai_1d_args)
-                        self._set_args(self.bai_2d_args)
-                        self._set_args(self.mg_args)
+                                
+                        if data_only:
+                            lst_attr = [
+                                "data_file", "scan_data", 
+                            ]
+                            pawstools.h5_to_attributes(self, grp, lst_attr)
+                        else:
+                            lst_attr = [
+                                "data_file", "scan_data", "mg_args", "bai_1d_args",
+                                "bai_2d_args"
+                            ]
+                            pawstools.h5_to_attributes(self, grp, lst_attr)
+                            self._set_args(self.bai_1d_args)
+                            self._set_args(self.bai_2d_args)
+                            self._set_args(self.mg_args)
                         pawstools.h5_to_attributes(self.bai_1d, grp['bai_1d'])
                         pawstools.h5_to_attributes(self.bai_2d, grp['bai_2d'])
                         pawstools.h5_to_attributes(self.mgi_1d, grp['mgi_1d'])
                         pawstools.h5_to_attributes(self.mgi_2d, grp['mgi_2d'])
-                        self.set_multi_geo(**self.mg_args)
+                        if set_mg:
+                            self.set_multi_geo(**self.mg_args)
 
     def _set_args(self, args):
         """Ensures any range args are lists.
