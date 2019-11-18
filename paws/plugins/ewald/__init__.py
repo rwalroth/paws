@@ -1,2 +1,2 @@
-from .ewaldSphere import EwaldSphere
-from .ewaldArch import EwaldArch
+from .sphere import EwaldSphere
+from .arch import EwaldArch
