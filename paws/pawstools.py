@@ -287,7 +287,7 @@ class DictTree(object):
         return tstr
 
 
-def data_to_h5(data, grp, key, encoder='yaml'):
+def data_to_h5(data, grp, key, encoder='yaml', compression='lzf'):
     if data is None:
         grp.create_dataset(key, data=h5py.Empty("f"))
         grp[key].attrs['encoded'] = 'None'
@@ -295,7 +295,7 @@ def data_to_h5(data, grp, key, encoder='yaml'):
     elif type(data) == dict:
         new_grp = grp.create_group(key)
         new_grp.attrs['encoded'] = 'dict'
-        dict_to_h5(data, new_grp)
+        dict_to_h5(data, new_grp, compression=compression)
     
     elif type(data) == str:
         grp.create_dataset(key, data=np.string_(data))
@@ -304,22 +304,26 @@ def data_to_h5(data, grp, key, encoder='yaml'):
     elif type(data) == pd.core.series.Series:
         new_grp = grp.create_group(key)
         new_grp.attrs['encoded'] = 'Series'
-        new_grp.create_dataset('data', data=np.array(data))
-        index_to_h5(data.index, 'index', new_grp)
+        new_grp.create_dataset('data', data=np.array(data), compression=compression)
+        index_to_h5(data.index, 'index', new_grp, compression)
         new_grp.create_dataset('name', data=np.string_(data.name))
     
     elif type(data) == pd.core.frame.DataFrame:
         new_grp = grp.create_group(key)
         new_grp.attrs['encoded'] = 'DataFrame'
-        index_to_h5(data.index, 'index', new_grp)
-        index_to_h5(data.columns, 'columns', new_grp)
-        new_grp.create_dataset('data', data=np.array(data))
+        index_to_h5(data.index, 'index', new_grp, compression)
+        index_to_h5(data.columns, 'columns', new_grp, compression)
+        new_grp.create_dataset('data', data=np.array(data), compression=compression)
     
     else:
         try:
-            grp.create_dataset(key, data=data)
-            grp[key].attrs['encoded'] = 'data'
-        
+            if np.array(data).shape == ():
+                grp.create_dataset(key, data=data)
+                grp[key].attrs['encoded'] = 'data'
+            else:
+                grp.create_dataset(key, data=data, compression=compression)
+                grp[key].attrs['encoded'] = 'data'
+
         except TypeError:
             print(f"TypeError, encoding {key} using {encoder}")
             try:
@@ -339,13 +343,13 @@ def data_to_h5(data, grp, key, encoder='yaml'):
                     print(f"Unable to dump {key}")
 
 
-def index_to_h5(index, key, grp):
+def index_to_h5(index, key, grp, compression):
     if index.dtype == 'object':
         grp.create_dataset(
             key, data=np.array([np.string_(str(x)) for x in index])
         )
     else:
-        grp.create_dataset(key, data=np.array(index))
+        grp.create_dataset(key, data=np.array(index), compression=compression)
 
 
 def dict_to_h5(data, grp, **kwargs):
