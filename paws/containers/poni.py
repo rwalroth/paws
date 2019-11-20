@@ -53,9 +53,24 @@ class PONI(object):
         out = cls()
         for key in input:
             if key == 'Detector':
-                out.detector = detector_factory(
-                    input['Detector'], config=input['Detector_config']
-                )
+                if 'Detector_config' in input:
+                    if 'max_shape' in input['Detector_config']:
+                        if not (input['Detector_config']['max_shape'] is None or 
+                                type(input['Detector_config']['max_shape']) == str):
+                            input['Detector_config']['max_shape'] = list(input['Detector_config']['max_shape'])
+                    out.detector = detector_factory(
+                        input['Detector'], config=input['Detector_config']
+                    )
+                elif 'PixelSize1' in input and 'PixelSize2' in input:
+                    out.detector = detector_factory(
+                        input['Detector'], 
+                        config={
+                            'pixel1': input['PixelSize1'],
+                            'pixel2': input['PixelSize2'],
+                        }
+                    )
+                else:
+                    out.detector = detector_factory(input['Detector'])
             elif key == 'Wavelength':
                 if type(input[key]) == str:
                     out.wavelength = eval(input[key])

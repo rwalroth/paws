@@ -293,6 +293,8 @@ class EwaldArch(PawsPlugin):
                         pawstools.h5_to_attributes(self, grp, lst_attr)
                         pawstools.h5_to_attributes(self.int_1d, grp['int_1d'])
                         pawstools.h5_to_attributes(self.int_2d, grp['int_2d'])
+                        print('in load')
+                        print(pawstools.h5_to_dict(grp['poni']))
                         self.poni = PONI.from_yamdict(
                             pawstools.h5_to_dict(grp['poni'])
                         )
