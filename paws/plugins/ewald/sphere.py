@@ -192,7 +192,7 @@ class EwaldSphere(PawsPlugin):
             result: result from MultiGeometry.integrate1d
         """
         with self.sphere_lock:
-            lst_mask = [a.mask for a in self.arches]
+            lst_mask = [a.get_mask() for a in self.arches]
             if monitor is None:
                 try:
                     result = self.multi_geo.integrate1d(
@@ -226,7 +226,7 @@ class EwaldSphere(PawsPlugin):
             result: result from MultiGeometry.integrate1d
         """
         with self.sphere_lock:
-            lst_mask = [a.mask for a in self.arches]
+            lst_mask = [a.get_mask for a in self.arches]
             if monitor is None:
                 try:
                     result = self.multi_geo.integrate2d(

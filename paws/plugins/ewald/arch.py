@@ -69,7 +69,6 @@ class EwaldArch(PawsPlugin):
         arch_lock: threading lock used to ensure only one process can
             access data at a time
         map_norm: normalized image data
-        map_q: reciprocal space coordinates for data
         int_1d: int_1d_data object from containers
         int_2d: int_2d_data object from containers
 
@@ -96,7 +95,7 @@ class EwaldArch(PawsPlugin):
         self.map_raw = map_raw
         self.poni = poni
         if mask is None and map_raw is not None:
-            self.mask = np.where(map_raw < 0, 1, 0)
+            self.mask = np.arange(map_raw.size)[map_raw.flatten() < 0]
         else:
             self.mask = mask
         self.scan_info = scan_info
@@ -114,13 +113,14 @@ class EwaldArch(PawsPlugin):
             **ai_args
         )
         self.arch_lock = Condition()
-        self.map_norm = 0
-        self.map_q = 0
+        self.map_norm = 1
         self.int_1d = int_1d_data()
         self.int_2d = int_2d_data()
-        self.xyz = None  # TODO: implement rotations to generate pixel coords
-        self.tcr = None
-        self.qchi = None
+    
+    def get_mask(self):
+        mask = np.zeros(self.map_raw.size, dtype=int)
+        mask[self.mask] = 1
+        return mask.reshape(self.map_raw.shape())
 
     def integrate_1d(self, numpoints=10000, radial_range=[0, 180],
                      monitor=None, unit=units.TTH_DEG, **kwargs):
@@ -148,14 +148,14 @@ class EwaldArch(PawsPlugin):
 
             result = self.integrator.integrate1d(
                 self.map_norm, numpoints, unit=unit, radial_range=radial_range,
-                mask=self.mask, **kwargs
+                mask=self.get_mask(), **kwargs
             )
 
             self.int_1d.from_result(result, self.poni.wavelength)
         return result
 
     def integrate_2d(self, npt_rad=1000, npt_azim=1000, monitor=None,
-                     radial_range=None, azimuth_range=None, 
+                     radial_range=[0,180], azimuth_range=[-180,180], 
                      unit=units.TTH_DEG, **kwargs):
         """Wrapper for integrate2d method of AzimuthalIntegrator from pyFAI.
         Sets 2d integration variables for object instance.
@@ -230,7 +230,7 @@ class EwaldArch(PawsPlugin):
         with self.arch_lock:
             self.map_raw = new_data
             if self.mask is None:
-                self.mask = np.where(self.map_raw < 0, 1, 0)
+                self.mask = np.arange(new_data.size)[new_data.flatten() < 0]
 
     def set_poni(self, new_data):
         with self.arch_lock:
@@ -259,8 +259,7 @@ class EwaldArch(PawsPlugin):
             grp = file.create_group(str(self.idx))
             grp.attrs['type'] = 'EwaldArch'
             lst_attr = [
-                "map_raw", "mask", "map_norm", "map_q", "xyz", "tcr", "qchi",
-                "scan_info", "ai_args"
+                "map_raw", "mask", "map_norm", "scan_info", "ai_args"
             ]
             pawstools.attributes_to_h5(self, grp, lst_attr)
             grp.create_group('int_1d')
@@ -287,8 +286,7 @@ class EwaldArch(PawsPlugin):
                 if 'type' in grp.attrs:
                     if grp.attrs['type'] == 'EwaldArch':
                         lst_attr = [
-                            "map_raw", "mask", "map_norm", "map_q", "xyz", "tcr",
-                            "qchi", "scan_info", "ai_args"
+                            "map_raw", "mask", "map_norm", "scan_info", "ai_args"
                         ]
                         pawstools.h5_to_attributes(self, grp, lst_attr)
                         pawstools.h5_to_attributes(self.int_1d, grp['int_1d'])
@@ -320,11 +318,7 @@ class EwaldArch(PawsPlugin):
         arch_copy.integrator = copy.deepcopy(self.integrator)
         arch_copy.arch_lock = Condition()
         arch_copy.map_norm = copy.deepcopy(self.map_norm)
-        arch_copy.map_q = copy.deepcopy(self.map_q)
         arch_copy.int_1d = copy.deepcopy(self.int_1d)
         arch_copy.int_2d = copy.deepcopy(self.int_2d)
-        arch_copy.xyz = copy.deepcopy(self.xyz)
-        arch_copy.tcr = copy.deepcopy(self.tcr)
-        arch_copy.qchi = copy.deepcopy(self.qchi)
 
         return arch_copy
