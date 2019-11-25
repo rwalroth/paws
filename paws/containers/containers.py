@@ -6,6 +6,103 @@ from pyFAI import units
 
 from .. import pawstools
 
+
+class nzarray2d():
+    def __init__(self, arr=None, ref=None):
+        if arr is not None:
+            if len(arr.shape) != 2:
+                raise IndexError ("Must be 2d array")
+            self.data, self.corners = self.get_no_zero(arr, ref)
+            self.shape = arr.shape
+        else:
+            self.data = None
+            self.shape = None
+            self.corners = None
+    
+    def get_no_zero(self, arr, ref):
+        if ref is None:
+            corners = self.get_corners(arr)
+        else:
+            assert arr.shape == ref.shape, "Reference array has wrong shape"
+            corners = self.get_corners(ref)
+        
+        data = arr[
+            corners[0]:corners[1], 
+            corners[2]:corners[3]
+        ]
+        return data, corners
+    
+    def get_corners(self, arr):
+        r = np.nonzero(np.sum(arr, axis=1))[0]
+        print(r)
+        c = np.nonzero(np.sum(arr, axis=0))[0]
+        print(c)
+        return (r[0], r[-1], c[0], c[-1])
+    
+    def full(self):
+        arr = np.zeros(self.shape, dtype=self.data.dtype)
+        arr[
+            self.corners[0]:self.corners[1], 
+            self.corners[2]:self.corners[3]
+        ] = self.data
+        return arr
+    
+    def __set__(self, obj, val):
+        self.__init__(val)
+    
+    def __add__(self, other):
+        full = self.full() + other.full()
+        return nzarray2d(full)
+    
+    def __sub__(self, other):
+        full = self.full() - other.full()
+        return nzarray2d(full)
+    
+    def __mul__(self, other):
+        full = self.full() * other.full()
+        return nzarray2d(full)
+    
+    def __truediv__(self, other):
+        full = self.full() / other.full()
+        return nzarray2d(full)
+    
+    def __div__(self, other):
+        full = self.full() / other.full()
+        return nzarray2d(full)
+    
+    def __floordiv__(self, other):
+        full = self.full() // other.full()
+        return nzarray2d(full)
+
+
+
+class nzarray1d():
+    def __init__(self, arr=None):
+        if arr is not None:
+            if len(arr.shape) != 1:
+                arr = arr.flatten()
+            self.data, self.corners = self.get_no_zero(arr)
+            self.shape = arr.shape
+        else:
+            self.data = None
+            self.shape = None
+            self.corners = None
+    
+    def get_no_zero(self, arr):
+        c = np.nonzero(arr)[0]
+        corners = (c[0], c[-1])
+        data = arr[c[0]:c[-1]]
+        return data, corners
+    
+    def full(self):
+        arr = np.zeros(self.shape, dtype=self.data.dtype)
+        arr[self.corners[0]:self.corners[1]] = self.data
+        return arr
+    
+    def __set__(self, obj, val):
+        self.__init__(val)
+
+
 class NoZeroArray():
     def __get__(self, instance, owner):
         if self.data is None:
@@ -32,11 +129,11 @@ class NoZeroArray():
 
 @dataclass
 class int_1d_data:
-    raw: np.ndarray = 0
-    pcount: np.ndarray = 0
-    norm: np.ndarray = 0
-    ttheta: np.ndarray = 0
-    q: np.ndarray = 0
+    raw = nzarray1d()
+    pcount = nzarray1d()
+    norm = nzarray1d()
+    ttheta = nzarray1d()
+    q = nzarray1d()
 
     def from_result(self, result, wavelength):
         self.ttheta, self.q = self.parse_unit(
@@ -85,7 +182,9 @@ class int_1d_data:
 
 @dataclass
 class int_2d_data(int_1d_data):
-    chi: np.ndarray = 0
+    raw = nzarray2d()
+    pcount = nzarray2d()
+    chi = nzarray1d()
 
     def from_result(self, result, wavelength):
         super(int_2d_data, self).from_result(result, wavelength)
