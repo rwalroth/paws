@@ -140,15 +140,14 @@ class EwaldArch(PawsPlugin):
         """
         with self.arch_lock:
             if monitor is not None:
-                self.map_norm = self.map_raw/self.scan_info[monitor]
-            else:
-                self.map_norm = self.map_raw
+                self.map_norm = self.scan_info[monitor]
             if self.mask is None:
-                self.mask = np.where(self.map_raw < 0, 1, 0)
+                self.mask = np.arange(map_raw.size)[map_raw.flatten() < 0]
 
             result = self.integrator.integrate1d(
-                self.map_norm, numpoints, unit=unit, radial_range=radial_range,
-                mask=self.get_mask(), **kwargs
+                self.map_raw, numpoints, unit=unit, radial_range=radial_range,
+                mask=self.get_mask(), normalization_factor=self.map_norm,
+                **kwargs
             )
 
             self.int_1d.from_result(result, self.poni.wavelength)
@@ -178,11 +177,10 @@ class EwaldArch(PawsPlugin):
         """
         with self.arch_lock:
             if monitor is not None:
-                self.map_norm = self.map_raw/self.scan_info[monitor]
-            else:
-                self.map_norm = self.map_raw
+                self.map_norm = self.scan_info[monitor]
+                
             if self.mask is None:
-                self.mask = np.where(self.map_raw < 0, 1, 0)
+                self.mask = np.arange(map_raw.size)[map_raw.flatten() < 0]
             
             if npt_rad is None:
                 npt_rad = self.map_raw.shape[0]
@@ -191,9 +189,10 @@ class EwaldArch(PawsPlugin):
                 npt_azim = self.map_raw.shape[1]
 
             result = self.integrator.integrate2d(
-                self.map_norm, npt_rad, npt_azim, unit=unit,
-                mask=self.mask, radial_range=radial_range, 
-                azimuth_range=azimuth_range, **kwargs
+                self.map_raw, npt_rad, npt_azim, unit=unit, 
+                mask=self.get_mask(), radial_range=radial_range, 
+                azimuth_range=azimuth_range, 
+                normalization_factor=self.map_norm, **kwargs
             )
 
             self.int_2d.from_result(result, self.poni.wavelength)
@@ -244,7 +243,7 @@ class EwaldArch(PawsPlugin):
         with self.arch_lock:
             self.scan_info = new_data
 
-    def save_to_h5(self, file):
+    def save_to_h5(self, file, compression='lzf'):
         """Saves data to hdf5 file using h5py as backend.
 
         args:
@@ -261,11 +260,12 @@ class EwaldArch(PawsPlugin):
             lst_attr = [
                 "map_raw", "mask", "map_norm", "scan_info", "ai_args"
             ]
-            pawstools.attributes_to_h5(self, grp, lst_attr)
+            pawstools.attributes_to_h5(self, grp, lst_attr, 
+                                       compression=compression)
             grp.create_group('int_1d')
-            pawstools.attributes_to_h5(self.int_1d, grp['int_1d'])
+            self.int_1d.to_hdf5(grp['int_1d'], compression)
             grp.create_group('int_2d')
-            pawstools.attributes_to_h5(self.int_2d, grp['int_2d'])
+            self.int_2d.to_hdf5(grp['int_2d'], compression)
             grp.create_group('poni')
             pawstools.dict_to_h5(self.poni.to_dict(), grp['poni'])
 
@@ -282,31 +282,31 @@ class EwaldArch(PawsPlugin):
             with self.arch_lock:
                 if str(self.idx) not in file:
                     print("No data can be found")
-                grp = file[str(self.idx)]
-                if 'type' in grp.attrs:
-                    if grp.attrs['type'] == 'EwaldArch':
-                        lst_attr = [
-                            "map_raw", "mask", "map_norm", "scan_info", "ai_args"
-                        ]
-                        pawstools.h5_to_attributes(self, grp, lst_attr)
-                        pawstools.h5_to_attributes(self.int_1d, grp['int_1d'])
-                        pawstools.h5_to_attributes(self.int_2d, grp['int_2d'])
-                        print('in load')
-                        print(pawstools.h5_to_dict(grp['poni']))
-                        self.poni = PONI.from_yamdict(
-                            pawstools.h5_to_dict(grp['poni'])
-                        )
-                        self.integrator = AzimuthalIntegrator(
-                            dist=self.poni.dist,
-                            poni1=self.poni.poni1,
-                            poni2=self.poni.poni2,
-                            rot1=self.poni.rot1,
-                            rot2=self.poni.rot2,
-                            rot3=self.poni.rot3,
-                            wavelength=self.poni.wavelength,
-                            detector=self.poni.detector,
-                            **self.ai_args
-                        )
+                else:
+                    grp = file[str(self.idx)]
+                    if 'type' in grp.attrs:
+                        if grp.attrs['type'] == 'EwaldArch':
+                            lst_attr = [
+                                "map_raw", "mask", "map_norm", "scan_info", 
+                                "ai_args"
+                            ]
+                            pawstools.h5_to_attributes(self, grp, lst_attr)
+                            self.int_1d.from_hdf5(grp['int_1d'])
+                            self.int_2d.from_hdf5(grp['int_2d'])
+                            self.poni = PONI.from_yamdict(
+                                pawstools.h5_to_dict(grp['poni'])
+                            )
+                            self.integrator = AzimuthalIntegrator(
+                                dist=self.poni.dist,
+                                poni1=self.poni.poni1,
+                                poni2=self.poni.poni2,
+                                rot1=self.poni.rot1,
+                                rot2=self.poni.rot2,
+                                rot3=self.poni.rot3,
+                                wavelength=self.poni.wavelength,
+                                detector=self.poni.detector,
+                                **self.ai_args
+                            )
 
     def copy(self):
         arch_copy = EwaldArch(
