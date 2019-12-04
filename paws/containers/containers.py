@@ -36,9 +36,9 @@ class NoZeroArray():
 
 class int_1d_data:
     def __init__(self, raw=None, pcount=None, norm=None, ttheta=None, q=None):
-        self.raw = nzarray1d(raw)
-        self.pcount = nzarray1d(pcount)
-        self.norm = nzarray1d(norm)
+        self.raw = raw
+        self.pcount = pcount
+        self.norm = norm
         self.ttheta = ttheta
         self.q = q
 
@@ -92,28 +92,35 @@ class int_1d_data:
         self.pcount.to_hdf5(pcount, compression)
         norm = grp.create_group('norm')
         self.norm.to_hdf5(norm, compression)
-        grp.create_dataset('ttheta', data=self.ttheta, compression=compression)
-        grp.create_dataset('q', data=self.q, compression=compression)
+        pawstools.attributes_to_h5(self, grp, ['ttheta', 'q'], compression=compression)
     
     def from_hdf5(self, grp):
         self.raw.from_hdf5(grp['raw'])
         self.pcount.from_hdf5(grp['pcount'])
         self.norm.from_hdf5(grp['norm'])
-        self.ttheta = grp['ttheta'][()]
-        self.q = grp['q'][()]
+        pawstools.h5_to_attributes(self, grp, ['ttheta', 'q'])
+    
+    def __setattr__(self, name, value):
+        if name in ['raw', 'norm', 'pcount']:
+            self.__dict__[name] = nzarray1d(value)
+        else:
+            super().__setattr__(name, value)
     
     def __add__(self, other):
-        self.raw += other.raw
-        self.pcount += other.pcount
-        self.norm = self.raw/self.pcount
-        
+        out = self.__class__()
+        out.raw = self.raw + other.raw
+        out.pcount = self.pcount + other.pcount
+        out.norm = out.raw/out.pcount
+        out.ttheta = copy.deepcopy(self.ttheta)
+        out.q = copy.deepcopy(self.q)
+        return out
 
 class int_2d_data(int_1d_data):
     def __init__(self,  raw=None, pcount=None, norm=None, ttheta=None, q=None,
                  chi=None):
-        self.raw = nzarray2d(raw)
-        self.pcount = nzarray2d(pcount)
-        self.norm = nzarray2d(norm)
+        self.raw = raw
+        self.pcount = pcount
+        self.norm = norm
         self.ttheta = ttheta
         self.q = q
         self.chi = chi
@@ -124,8 +131,14 @@ class int_2d_data(int_1d_data):
     
     def from_hdf5(self, grp):
         super().from_hdf5(grp)
-        self.chi = grp['chi'][()]
+        pawstools.h5_to_attributes(self, grp, ['chi'])
     
     def to_hdf5(self, grp, compression=None):
         super().to_hdf5(grp, compression)
-        grp.create_dataset('chi', data=self.chi, compression=compression)
+        pawstools.data_to_h5(self.chi, grp, 'chi', compression=compression)
+    
+    def __setattr__(self, name, value):
+        if name in ['raw', 'norm', 'pcount']:
+            self.__dict__[name] = nzarray2d(value)
+        else:
+            super().__setattr__(name, value)

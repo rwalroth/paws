@@ -120,7 +120,7 @@ class EwaldArch(PawsPlugin):
     def get_mask(self):
         mask = np.zeros(self.map_raw.size, dtype=int)
         mask[self.mask] = 1
-        return mask.reshape(self.map_raw.shape())
+        return mask.reshape(self.map_raw.shape)
 
     def integrate_1d(self, numpoints=10000, radial_range=[0, 180],
                      monitor=None, unit=units.TTH_DEG, **kwargs):
@@ -142,7 +142,7 @@ class EwaldArch(PawsPlugin):
             if monitor is not None:
                 self.map_norm = self.scan_info[monitor]
             if self.mask is None:
-                self.mask = np.arange(map_raw.size)[map_raw.flatten() < 0]
+                self.mask = np.arange(self.map_raw.size)[self.map_raw.flatten() < 0]
 
             result = self.integrator.integrate1d(
                 self.map_raw, numpoints, unit=unit, radial_range=radial_range,
@@ -180,7 +180,7 @@ class EwaldArch(PawsPlugin):
                 self.map_norm = self.scan_info[monitor]
                 
             if self.mask is None:
-                self.mask = np.arange(map_raw.size)[map_raw.flatten() < 0]
+                self.mask = np.arange(self.map_raw.size)[self.map_raw.flatten() < 0]
             
             if npt_rad is None:
                 npt_rad = self.map_raw.shape[0]

@@ -383,8 +383,6 @@ def attributes_to_h5(obj, grp, lst_attr=None, priv=False, dpriv=False,
         else:
             lst_attr = [x for x in obj.__dict__.keys() if '_' not in x]
     for attr in lst_attr:
-        if attr in grp.keys():
-            del(grp[attr])
         data = getattr(obj, attr)
         data_to_h5(data, grp, attr, **kwargs)
 

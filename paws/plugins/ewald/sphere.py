@@ -147,9 +147,14 @@ class EwaldSphere(PawsPlugin):
         """helper function to update overall bai variables.
         """
         with self.sphere_lock:
-            self.bai_1d.raw += arch.int_1d.raw
-            self.bai_1d.pcount += arch.int_1d.pcount
-            self.bai_1d.norm = pawstools.div0(self.bai_1d.raw, self.bai_1d.pcount)
+            try:
+                self.bai_1d += arch.int_1d
+            except (TypeError, AssertionError, AttributeError):
+                print("caught exception")
+                self.bai_1d.raw = np.zeros(arch.int_1d.raw.shape)
+                self.bai_1d.pcount = np.zeros(arch.int_1d.pcount.shape)
+                self.bai_1d.norm = np.zeros(arch.int_1d.norm.shape)
+                self.bai_1d += arch.int_1d
             self.bai_1d.ttheta = arch.int_1d.ttheta
             self.bai_1d.q = arch.int_1d.q
     
@@ -163,9 +168,7 @@ class EwaldSphere(PawsPlugin):
                 self.bai_2d.raw = np.zeros(arch.int_2d.raw.shape)
                 self.bai_2d.pcount = np.zeros(arch.int_2d.pcount.shape)
                 self.bai_2d.norm = np.zeros(arch.int_2d.norm.shape)
-            self.bai_2d.raw += arch.int_2d.raw
-            self.bai_2d.pcount += arch.int_2d.pcount
-            self.bai_2d.norm = pawstools.div0(self.bai_2d.raw, self.bai_2d.pcount)
+            self.bai_2d += arch.int_2d
             self.bai_2d.ttheta = arch.int_2d.ttheta
             self.bai_2d.q = arch.int_2d.q
             self.bai_2d.chi = arch.int_2d.chi

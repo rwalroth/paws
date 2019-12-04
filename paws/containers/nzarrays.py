@@ -51,7 +51,7 @@ class nzarray1d():
     def intersect(self, other):
         assert \
             self.shape == other.shape, \
-            "Can't divide nzarray of different shape"
+            "Can't cast nzarray of different shape"
         out = nzarray1d()
         
         out.shape = self.shape[:]
@@ -70,14 +70,15 @@ class nzarray1d():
         return out, other_data
     
     def to_hdf5(self, grp, compression=None):
-        grp.create_dataset('data', data=self.data, compression=compression)
-        grp.create_dataset('shape', data=self.shape)
-        grp.create_dataset('corners', data=self.corners)
+        pawstools.attributes_to_h5(
+            self, grp, lst_attr=['data', 'shape', 'corners'], 
+            compression=compression
+        )
     
     def from_hdf5(self, grp):
-        self.raw = grp['raw'][()]
-        self.shape = grp['shape'][()]
-        self.corners = grp['corners'][()]
+        pawstools.h5_to_attributes(
+            self, grp, lst_attr=['data', 'shape', 'corners']
+        )
         
     
     def _shift_index(self, idx, si=0):
@@ -137,25 +138,53 @@ class nzarray1d():
     
     def __add__(self, other):
         if isinstance(other, self.__class__):
-            out, temp = self.intersect(other)
-            out.data += temp
+            assert self.shape == other.shape, "Cannot add arrays of different shape"
+            if other.data.size > 0 and self.data.size > 0:
+                out, temp = self.intersect(other)
+                out.data += temp
+            elif other.data.size > 0:
+                out = self.__class__(other)
+            else:
+                out = self.__class__(self)
         elif np.isscalar(other) or type(other) == np.ndarray:
             out = self.__class__(self.full() + other)
+        else:
+            raise TypeError(f"Cannot add object of type {type(other)}")
         return out
     
     def __sub__(self, other):
         if isinstance(other, self.__class__):
-            out, temp = self.intersect(other)
-            out.data -= temp
+            assert self.shape == other.shape, "Cannot subtract arrays of different shape"
+            if other.data.size > 0 and self.data.size > 0:
+                out, temp = self.intersect(other)
+                out.data -= temp
+            elif other.data.size > 0:
+                out = self.__class__(other * -1)
+            else:
+                out = self.__class__(self)
         elif np.isscalar(other) or type(other) == np.ndarray:
             out = self.__class__(self.full() - other)
         return out
     
     def __mul__(self, other):
         if isinstance(other, self.__class__):
+            assert self.shape == other.shape, "Cannot multiply arrays of different shape"
             out, temp = self.intersect(other)
             out.data *= temp
-        elif np.isscalar(other) or type(other) == np.ndarray:
+            if other.data.size > 0 and self.data.size > 0:
+                out, temp = self.intersect(other)
+                out.data *= temp
+            elif other.data.size > 0:
+                out = self.__class__(self)
+            else:
+                out = self.__class__(other)
+        elif np.isscalar(other):
+            if other == 0:
+                out = self.__class__(np.zeros(self.shape))
+            else:
+                out = self.__class__(self)
+                out.data *= other
+        elif type(other) == np.ndarray:
             out = self.__class__(self.full() * other)
         return out
     
@@ -164,20 +193,46 @@ class nzarray1d():
     
     def __truediv__(self, other):
         if isinstance(other, self.__class__):
+            assert self.shape == other.shape, "Cannot divide arrays of different shape"
             out, temp = self.intersect(other)
-            out.data = pawstools.div0(out.data, temp)
-        elif np.isscalar(other) or type(other) == np.ndarray:
+            out.data *= temp
+            if other.data.size > 0 and self.data.size > 0:
+                out, temp = self.intersect(other)
+                out.data = pawstools.div0(out.data, temp)
+            elif other.data.size > 0:
+                out = self.__class__(self)
+            else:
+                out = self.__class__(other)
+        elif np.isscalar(other):
+            if other == 0:
+                out = self.__class__(np.zeros(self.shape))
+            else:
+                out = self.__class__(self)
+                out.data = pawstools.div0(out.data, other)
+        elif type(other) == np.ndarray:
             out = self.__class__(pawstools.div0(self.full(), other))
         return out
     
     def __floordiv__(self, other):
         if isinstance(other, self.__class__):
+            assert self.shape == other.shape, "Cannot divide arrays of different shape"
             out, temp = self.intersect(other)
-            out.data = pawstools.div0(out.data, temp).astype(int)
-        elif np.isscalar(other) or type(other) == np.ndarray:
-            out = self.__class__(
-                pawstools.div0(self.full(), other).astype(int)
-            )
+            out.data *= temp
+            if other.data.size > 0 and self.data.size > 0:
+                out, temp = self.intersect(other)
+                out.data = pawstools.div0(out.data, temp).astype(int)
+            elif other.data.size > 0:
+                out = self.__class__(self)
+            else:
+                out = self.__class__(other)
+        elif np.isscalar(other):
+            if other == 0:
+                out = self.__class__(np.zeros(self.shape))
+            else:
+                out = self.__class__(self)
+                out.data = pawstools.div0(out.data, other).astype(int)
+        elif type(other) == np.ndarray:
+            out = self.__class__(pawstools.div0(self.full(), other).astype(int))
         return out
 
 
