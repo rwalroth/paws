@@ -150,7 +150,6 @@ class EwaldSphere(PawsPlugin):
             try:
                 self.bai_1d += arch.int_1d
             except (TypeError, AssertionError, AttributeError):
-                print("caught exception")
                 self.bai_1d.raw = np.zeros(arch.int_1d.raw.shape)
                 self.bai_1d.pcount = np.zeros(arch.int_1d.pcount.shape)
                 self.bai_1d.norm = np.zeros(arch.int_1d.norm.shape)
