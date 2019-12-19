@@ -288,8 +288,6 @@ class DictTree(object):
 
 
 def data_to_h5(data, grp, key, encoder='yaml', compression='lzf'):
-    if key in grp:
-        del(grp[key])
     if data is None:
         grp.create_dataset(key, data=h5py.Empty("f"))
         grp[key].attrs['encoded'] = 'None'
@@ -385,6 +383,8 @@ def attributes_to_h5(obj, grp, lst_attr=None, priv=False, dpriv=False,
         else:
             lst_attr = [x for x in obj.__dict__.keys() if '_' not in x]
     for attr in lst_attr:
+        if attr in grp.keys():
+            del(grp[attr])
         data = getattr(obj, attr)
         data_to_h5(data, grp, attr, **kwargs)
 
