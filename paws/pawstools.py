@@ -288,6 +288,8 @@ class DictTree(object):
 
 
 def data_to_h5(data, grp, key, encoder='yaml', compression='lzf'):
+    if key in grp:
+        del(grp[key])
     if data is None:
         grp.create_dataset(key, data=h5py.Empty("f"))
         grp[key].attrs['encoded'] = 'None'

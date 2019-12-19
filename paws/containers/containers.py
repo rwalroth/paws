@@ -35,7 +35,7 @@ class NoZeroArray():
             self.data = value[r[0]:r[-1], c[0]:c[-1]]
 
 class int_1d_data:
-    def __init__(self, raw=None, pcount=None, norm=None, ttheta=None, q=None):
+    def __init__(self, raw=None, pcount=None, norm=None, ttheta=0, q=0):
         self.raw = raw
         self.pcount = pcount
         self.norm = norm
@@ -86,6 +86,9 @@ class int_1d_data:
         return int_1d_2theta, int_1d_q
 
     def to_hdf5(self, grp, compression=None):
+        for key in ['raw', 'pcount', 'norm']:
+            if key in grp:
+                del grp[key]
         raw = grp.create_group('raw')
         self.raw.to_hdf5(raw, compression)
         pcount = grp.create_group('pcount')
@@ -116,8 +119,8 @@ class int_1d_data:
         return out
 
 class int_2d_data(int_1d_data):
-    def __init__(self,  raw=None, pcount=None, norm=None, ttheta=None, q=None,
-                 chi=None):
+    def __init__(self,  raw=None, pcount=None, norm=None, ttheta=0, q=0,
+                 chi=0):
         self.raw = raw
         self.pcount = pcount
         self.norm = norm
