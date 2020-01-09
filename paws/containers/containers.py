@@ -138,7 +138,7 @@ class int_2d_data(int_1d_data):
     
     def to_hdf5(self, grp, compression=None):
         super().to_hdf5(grp, compression)
-        pawstools.data_to_h5(self.chi, grp, 'chi', compression=compression)
+        pawstools.attributes_to_h5(self, grp, ['chi'], compression=compression)
     
     def __setattr__(self, name, value):
         if name in ['raw', 'norm', 'pcount']:
